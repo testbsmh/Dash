@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 WorkspaceONE App Intelligence Dashboard
-Desktop application built with PyWebView
+Desktop application built with PyWebView - FULLY PYTHON DRIVEN
 
 Run with: python main.py
 """
@@ -12,8 +12,10 @@ import os
 import sys
 import logging
 import traceback
+import threading
+import time
 
-# Setup logging FIRST - before any other imports
+# Setup logging FIRST
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -28,10 +30,6 @@ logger.info("="*60)
 logger.info("WorkspaceONE App Intelligence - Starting...")
 logger.info("="*60)
 
-# Now import our modules
-from config import Config
-from api import WS1API
-
 # Get the directory where the script is located
 if getattr(sys, 'frozen', False):
     BASE_DIR = sys._MEIPASS
@@ -40,150 +38,173 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     logger.info(f"Running as script, BASE_DIR: {BASE_DIR}")
 
+# Import after logging setup
+from config import Config
+from api import WS1API
 
-class API:
+
+class PythonAPI:
     """
-    Python API exposed to JavaScript.
-    
-    IMPORTANT: Only simple types (dict, list, str, int, bool, None) should be 
-    returned from these methods. PyWebView serializes the entire class, so 
-    avoid storing non-serializable objects as instance attributes.
+    Python API exposed to JavaScript via pywebview.
+    All methods return JSON-serializable dicts.
     """
     
-    def __init__(self):
-        logger.info("Initializing Python API bridge...")
-        
-        # Store config as a simple dict, not the Config object
-        try:
-            self._config_manager = Config()
-            self._config_data = self._config_manager.get_all()
-            logger.info("Config manager initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize config: {e}", exc_info=True)
-            self._config_manager = None
-            self._config_data = {}
-        
+    def __init__(self, window=None):
+        logger.info("Initializing PythonAPI...")
+        self.window = window
+        self._config = Config()
         self._ws1_api = None
-        logger.info("Python API bridge initialized")
+        logger.info("PythonAPI initialized")
+    
+    def set_window(self, window):
+        """Set the window reference after creation."""
+        self.window = window
+        logger.info("Window reference set")
+    
+    def log(self, message):
+        """Log a message from JavaScript."""
+        logger.info(f"[JS] {message}")
+        return True
     
     def get_config(self):
-        """Get current configuration as a simple dict."""
-        logger.info("JavaScript called: get_config()")
+        """Get current configuration."""
+        logger.info("get_config() called")
         try:
-            if self._config_manager:
-                self._config_data = self._config_manager.get_all()
-            result = self._config_data.copy()
-            logger.debug(f"Returning config with keys: {list(result.keys())}")
-            return result
+            config = self._config.get_all()
+            logger.info(f"Returning config with {len(config)} keys")
+            # Mask secrets in log
+            safe_log = {k: ('***' if 'secret' in k.lower() or 'pass' in k.lower() else v) for k, v in config.items()}
+            logger.debug(f"Config values: {safe_log}")
+            return {'success': True, 'data': config}
         except Exception as e:
-            logger.error(f"Error in get_config: {e}", exc_info=True)
-            return {}
+            logger.error(f"get_config error: {e}", exc_info=True)
+            return {'success': False, 'error': str(e)}
     
     def save_config(self, config_data):
-        """Save configuration."""
-        logger.info("JavaScript called: save_config()")
-        logger.debug(f"Config data received: {list(config_data.keys()) if config_data else 'None'}")
-        
+        """Save configuration to file."""
+        logger.info("save_config() called")
         try:
             if not config_data:
-                logger.error("No config data provided")
                 return {'success': False, 'error': 'No config data provided'}
             
-            if self._config_manager:
-                success = self._config_manager.save(config_data)
-                if success:
-                    self._config_data = self._config_manager.get_all()
-                    logger.info("Config saved successfully")
-                    return {'success': True}
-                else:
-                    logger.error("Config manager returned False")
-                    return {'success': False, 'error': 'Failed to save config'}
+            logger.debug(f"Saving config keys: {list(config_data.keys())}")
+            success = self._config.save(config_data)
+            
+            if success:
+                logger.info("Config saved successfully")
+                return {'success': True}
             else:
-                logger.error("Config manager not available")
-                return {'success': False, 'error': 'Config manager not initialized'}
+                logger.error("Config save returned False")
+                return {'success': False, 'error': 'Failed to save configuration'}
                 
         except Exception as e:
-            logger.error(f"Error in save_config: {e}", exc_info=True)
+            logger.error(f"save_config error: {e}", exc_info=True)
             return {'success': False, 'error': str(e)}
     
     def fetch_data(self):
-        """Fetch all application data from WorkspaceONE."""
-        logger.info("JavaScript called: fetch_data()")
+        """Fetch all application data from WorkspaceONE APIs."""
+        logger.info("="*40)
+        logger.info("fetch_data() called - Starting data fetch")
+        logger.info("="*40)
         
         try:
-            # Check if credentials are configured
-            client_id = self._config_data.get('clientId', '')
-            client_secret = self._config_data.get('clientSecret', '')
+            # Get fresh config
+            config = self._config.get_all()
             
-            logger.debug(f"Client ID configured: {bool(client_id)}")
-            logger.debug(f"Client Secret configured: {bool(client_secret)}")
+            client_id = config.get('clientId', '').strip()
+            client_secret = config.get('clientSecret', '').strip()
+            
+            logger.info(f"Client ID: {'[SET: ' + client_id[:10] + '...]' if client_id else '[EMPTY]'}")
+            logger.info(f"Client Secret: {'[SET]' if client_secret else '[EMPTY]'}")
             
             if not client_id or not client_secret:
-                logger.info("No credentials configured, returning demo mode flag")
+                logger.warning("No credentials configured - returning demo flag")
                 return {
-                    'success': False, 
-                    'demo': True, 
-                    'message': 'No credentials configured - using demo mode'
+                    'success': False,
+                    'demo': True,
+                    'message': 'No API credentials configured. Using demo mode.'
                 }
             
-            # Initialize API client with current config
-            logger.info("Initializing WS1 API client...")
-            
-            # Create a simple config-like object for the API
-            class SimpleConfig:
-                def __init__(self, data):
-                    self._data = data
-                def get(self, key, default=None):
-                    return self._data.get(key, default)
-            
-            simple_config = SimpleConfig(self._config_data)
-            self._ws1_api = WS1API(simple_config)
+            # Create API client
+            logger.info("Creating WS1API client...")
+            self._ws1_api = WS1API(self._config)
             
             # Fetch data
-            logger.info("Fetching Intelligence data...")
+            logger.info("Calling fetch_intelligence_data()...")
             rows = self._ws1_api.fetch_intelligence_data()
             
-            logger.info(f"Successfully fetched {len(rows)} records")
+            logger.info(f"SUCCESS: Retrieved {len(rows)} records")
             return {
-                'success': True, 
-                'data': rows, 
+                'success': True,
+                'data': rows,
                 'count': len(rows)
             }
             
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Error in fetch_data: {error_msg}", exc_info=True)
+            logger.error(f"fetch_data FAILED: {error_msg}", exc_info=True)
             return {
-                'success': False, 
+                'success': False,
                 'error': error_msg,
-                'traceback': traceback.format_exc()
+                'demo': True
             }
     
     def fetch_assignments(self, app_id, app_type):
         """Fetch assignments for a specific app."""
-        logger.info(f"JavaScript called: fetch_assignments(app_id={app_id}, app_type={app_type})")
+        logger.info(f"fetch_assignments() called: app_id={app_id}, app_type={app_type}")
         
         try:
             if not self._ws1_api:
-                logger.warning("WS1 API not initialized, initializing now...")
-                
-                class SimpleConfig:
-                    def __init__(self, data):
-                        self._data = data
-                    def get(self, key, default=None):
-                        return self._data.get(key, default)
-                
-                simple_config = SimpleConfig(self._config_data)
-                self._ws1_api = WS1API(simple_config)
+                self._ws1_api = WS1API(self._config)
             
             assignments = self._ws1_api.fetch_assignments(app_id, app_type)
-            
             logger.info(f"Retrieved {len(assignments)} assignments")
             return {'success': True, 'data': assignments}
             
         except Exception as e:
-            logger.error(f"Error in fetch_assignments: {e}", exc_info=True)
+            logger.error(f"fetch_assignments error: {e}", exc_info=True)
+            return {'success': False, 'error': str(e), 'data': []}
+    
+    def test_connection(self):
+        """Test API connection with current credentials."""
+        logger.info("test_connection() called")
+        
+        try:
+            config = self._config.get_all()
+            client_id = config.get('clientId', '').strip()
+            client_secret = config.get('clientSecret', '').strip()
+            
+            if not client_id or not client_secret:
+                return {
+                    'success': False,
+                    'error': 'Client ID and Secret are required'
+                }
+            
+            # Try to get a token
+            api = WS1API(self._config)
+            token = api.get_token()
+            
+            if token:
+                logger.info("Connection test SUCCESS - token obtained")
+                return {'success': True, 'message': 'Connection successful!'}
+            else:
+                return {'success': False, 'error': 'Failed to obtain token'}
+                
+        except Exception as e:
+            logger.error(f"Connection test failed: {e}", exc_info=True)
             return {'success': False, 'error': str(e)}
+
+
+def get_html_content():
+    """Load and return the HTML content."""
+    html_path = os.path.join(BASE_DIR, 'index.html')
+    logger.info(f"Loading HTML from: {html_path}")
+    
+    if not os.path.exists(html_path):
+        raise FileNotFoundError(f"index.html not found at {html_path}")
+    
+    with open(html_path, 'r', encoding='utf-8') as f:
+        return f.read()
 
 
 def main():
@@ -191,20 +212,21 @@ def main():
     logger.info("Starting main application...")
     
     try:
-        # Initialize API
-        logger.info("Creating API instance...")
-        api = API()
+        # Create API instance
+        api = PythonAPI()
         
-        # Get HTML file path
+        # Get HTML path
         html_path = os.path.join(BASE_DIR, 'index.html')
-        logger.info(f"HTML file path: {html_path}")
         
         if not os.path.exists(html_path):
-            logger.error(f"HTML file not found at: {html_path}")
-            raise FileNotFoundError(f"index.html not found at {html_path}")
+            logger.error(f"HTML file not found: {html_path}")
+            print(f"\nERROR: index.html not found at {html_path}")
+            input("Press Enter to exit...")
+            return
+        
+        logger.info(f"Creating window with HTML: {html_path}")
         
         # Create window
-        logger.info("Creating webview window...")
         window = webview.create_window(
             'WorkspaceONE App Intelligence',
             html_path,
@@ -216,25 +238,25 @@ def main():
             text_select=True
         )
         
-        logger.info("Starting webview...")
-        logger.info("="*60)
-        logger.info("Application window should appear now")
-        logger.info("Check ws1_app.log for detailed logs")
-        logger.info("="*60)
+        # Set window reference in API
+        api.set_window(window)
         
-        # Start the webview
-        webview.start(debug=True)  # Enable debug mode for more info
+        logger.info("Starting webview (debug=True)...")
+        print("\n" + "="*60)
+        print("Application starting...")
+        print("Check 'ws1_app.log' for detailed logs")
+        print("="*60 + "\n")
         
-        logger.info("Application closed")
+        # Start webview with debug enabled
+        webview.start(debug=True)
+        
+        logger.info("Application closed normally")
         
     except Exception as e:
-        logger.error(f"Fatal error in main: {e}", exc_info=True)
-        print(f"\n{'='*60}")
-        print(f"FATAL ERROR: {e}")
-        print(f"{'='*60}")
-        print(f"\nFull traceback:\n{traceback.format_exc()}")
-        print(f"\nCheck ws1_app.log for more details")
-        input("\nPress Enter to exit...")
+        logger.error(f"Fatal error: {e}", exc_info=True)
+        print(f"\nFATAL ERROR: {e}")
+        print(f"\nTraceback:\n{traceback.format_exc()}")
+        input("Press Enter to exit...")
         sys.exit(1)
 
 

@@ -569,16 +569,41 @@ let devFilter = 'all';
 let devSearch = '';
 let devPage = 1;
 const PAGE = 15;
+let pywebviewReady = false;
 
-// Check if running in pywebview
-const isPyWebView = typeof pywebview !== 'undefined';
+// ─── LOGGING ────────────────────────────────────────────────────────────────
+function log(msg, type = 'info') {
+  const timestamp = new Date().toISOString().substr(11, 8);
+  console.log(`[${timestamp}] [${type.toUpperCase()}] ${msg}`);
+  // Also log to Python if available
+  if (pywebviewReady && window.pywebview && window.pywebview.api) {
+    try { window.pywebview.api.log(`[JS] ${msg}`); } catch(e) {}
+  }
+}
 
 // ─── PYTHON API BRIDGE ──────────────────────────────────────────────────────
 async function pyCall(method, ...args) {
-  if (isPyWebView && pywebview.api) {
-    return await pywebview.api[method](...args);
+  log(`Calling Python: ${method}(${args.length > 0 ? '...' : ''})`);
+  
+  if (!pywebviewReady) {
+    log('pywebview not ready yet', 'warn');
+    return null;
   }
-  return null;
+  
+  if (!window.pywebview || !window.pywebview.api) {
+    log('pywebview.api not available', 'error');
+    return null;
+  }
+  
+  try {
+    const result = await window.pywebview.api[method](...args);
+    log(`Python ${method}() returned: ${result ? 'success' : 'null'}`);
+    return result;
+  } catch (e) {
+    log(`Python ${method}() error: ${e.message}`, 'error');
+    console.error(e);
+    return null;
+  }
 }
 
 // ─── UI HELPERS ─────────────────────────────────────────────────────────────
@@ -586,6 +611,8 @@ function openCfg() { document.getElementById('cfgModal').classList.add('open'); 
 function closeCfg() { document.getElementById('cfgModal').classList.remove('open'); }
 
 async function saveCfg() {
+  log('Saving configuration...');
+  
   cfg.tokenUrl   = document.getElementById('cfg_token_url').value.trim();
   cfg.clientId   = document.getElementById('cfg_client_id').value.trim();
   cfg.clientSecret = document.getElementById('cfg_client_secret').value.trim();
@@ -596,13 +623,24 @@ async function saveCfg() {
   cfg.user       = document.getElementById('cfg_user').value.trim();
   cfg.pass       = document.getElementById('cfg_pass').value.trim();
   
-  // Save to Python backend if available
-  if (isPyWebView) {
-    await pyCall('save_config', cfg);
+  log(`Config: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}, clientSecret=${cfg.clientSecret ? '[SET]' : '[EMPTY]'}`);
+  
+  // Save to Python backend
+  if (pywebviewReady) {
+    const result = await pyCall('save_config', cfg);
+    if (result && result.success) {
+      log('Config saved to Python backend');
+      toast('Configuration saved successfully!', 'ok');
+    } else {
+      log(`Config save failed: ${result?.error || 'unknown'}`, 'error');
+      toast('Failed to save config: ' + (result?.error || 'Unknown error'), 'err');
+    }
+  } else {
+    log('pywebview not ready, config saved locally only', 'warn');
+    toast('Configuration saved (local only)', 'ok');
   }
   
   closeCfg();
-  toast('Configuration saved', 'ok');
 }
 
 function toast(msg, type='', dur=2800) {
@@ -775,40 +813,63 @@ function generateDemoData() {
 
 // ─── MAIN LOAD ───────────────────────────────────────────────────────────────
 async function loadAllData() {
-  showLoading('Loading…', 'Fetching application data');
+  log('='.repeat(50));
+  log('loadAllData() called - Starting sync...');
+  log('='.repeat(50));
+  
+  showLoading('Syncing Data…', 'Connecting to WorkspaceONE');
   
   try {
-    if (isPyWebView) {
-      // Use Python backend
+    if (pywebviewReady) {
+      log('Calling Python fetch_data()...');
+      showLoading('Fetching Data…', 'Calling Python API');
+      
       const result = await pyCall('fetch_data');
       
+      log(`fetch_data result: success=${result?.success}, demo=${result?.demo}, count=${result?.count}, error=${result?.error}`);
+      
       if (result && result.success && result.data) {
+        log(`Processing ${result.data.length} rows...`);
+        showLoading('Processing…', `${result.count} device records`);
+        
         allApps = processRows(result.data);
+        
+        log(`Processed into ${allApps.length} apps`);
         toast(`Loaded ${allApps.length} apps (${result.count} device records)`, 'ok');
         document.getElementById('hdrStatus').textContent = `● Connected · ${allApps.length} apps`;
         document.getElementById('hdrStatus').className = 'header-status connected';
+        
       } else if (result && result.demo) {
+        log('Demo mode - no credentials or API returned demo flag');
         allApps = generateDemoData();
-        toast('Demo mode — configure API credentials to load live data');
+        toast(result.message || 'Demo mode — configure API credentials', 'ok');
         document.getElementById('hdrStatus').textContent = '● Demo mode · 10 sample apps';
+        document.getElementById('hdrStatus').className = 'header-status';
+        
       } else {
+        const errorMsg = result?.error || 'Unknown error from Python API';
+        log(`API Error: ${errorMsg}`, 'error');
         allApps = generateDemoData();
-        toast(`Error: ${result?.error || 'Unknown error'} — showing demo data`, 'err', 4000);
+        toast(`Error: ${errorMsg}`, 'err', 5000);
+        document.getElementById('hdrStatus').textContent = '● Error · Demo mode';
+        document.getElementById('hdrStatus').className = 'header-status';
       }
     } else {
-      // Browser mode - use demo data
+      log('pywebview not ready - using demo data');
       allApps = generateDemoData();
-      toast('Running in browser — demo mode enabled');
+      toast('Application loading — demo mode');
       document.getElementById('hdrStatus').textContent = '● Demo mode · 10 sample apps';
     }
   } catch(e) {
-    allApps = generateDemoData();
-    toast(`Error: ${e.message} — showing demo data`, 'err', 4000);
+    log(`Exception in loadAllData: ${e.message}`, 'error');
     console.error(e);
+    allApps = generateDemoData();
+    toast(`Error: ${e.message}`, 'err', 5000);
   }
   
   hideLoading();
   filterApps();
+  log('loadAllData() complete');
 }
 
 // ─── SIDEBAR RENDER ──────────────────────────────────────────────────────────
@@ -1175,12 +1236,22 @@ function ts() { return new Date().toISOString().replace(/[:.]/g,'-').split('T').
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 async function init() {
-  // Load saved config from Python backend if available
-  if (isPyWebView) {
+  log('='.repeat(50));
+  log('Initializing application...');
+  log('='.repeat(50));
+  
+  // Load saved config from Python backend
+  if (pywebviewReady) {
+    log('Loading config from Python...');
     try {
-      const savedCfg = await pyCall('get_config');
-      if (savedCfg) {
-        cfg = { ...cfg, ...savedCfg };
+      const result = await pyCall('get_config');
+      log(`get_config result: success=${result?.success}`);
+      
+      if (result && result.success && result.data) {
+        cfg = { ...cfg, ...result.data };
+        log(`Config loaded: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}`);
+        
+        // Populate form fields
         document.getElementById('cfg_token_url').value = cfg.tokenUrl || '';
         document.getElementById('cfg_client_id').value = cfg.clientId || '';
         document.getElementById('cfg_client_secret').value = cfg.clientSecret || '';
@@ -1192,22 +1263,60 @@ async function init() {
         document.getElementById('cfg_pass').value = cfg.pass || '';
       }
     } catch(e) {
-      console.log('Could not load saved config:', e);
+      log(`Error loading config: ${e.message}`, 'error');
     }
+  } else {
+    log('pywebview not ready during init');
   }
   
-  // Pre-fill config modal from default values
-  document.getElementById('cfg_token_url').value = cfg.tokenUrl;
-  document.getElementById('cfg_intel_base').value = cfg.intelBase;
+  // Set defaults in form
+  if (!document.getElementById('cfg_token_url').value) {
+    document.getElementById('cfg_token_url').value = cfg.tokenUrl;
+  }
+  if (!document.getElementById('cfg_intel_base').value) {
+    document.getElementById('cfg_intel_base').value = cfg.intelBase;
+  }
   
+  log('Init complete, loading data...');
   loadAllData();
 }
 
-// Wait for pywebview to be ready, then initialize
-if (isPyWebView) {
-  window.addEventListener('pywebviewready', init);
+// ─── PYWEBVIEW READY HANDLER ─────────────────────────────────────────────────
+function onPyWebViewReady() {
+  log('pywebviewready event received!');
+  pywebviewReady = true;
+  init();
+}
+
+// Wait for pywebview to be ready
+if (window.pywebview) {
+  log('pywebview already available');
+  pywebviewReady = true;
+  window.addEventListener('DOMContentLoaded', init);
 } else {
-  window.onload = init;
+  log('Waiting for pywebviewready event...');
+  window.addEventListener('pywebviewready', onPyWebViewReady);
+  // Fallback: also try on DOMContentLoaded in case event was missed
+  window.addEventListener('DOMContentLoaded', function() {
+    if (window.pywebview) {
+      log('pywebview found on DOMContentLoaded');
+      pywebviewReady = true;
+      if (!allApps.length) init();
+    } else {
+      log('No pywebview on DOMContentLoaded, waiting...', 'warn');
+      // Final fallback after 2 seconds
+      setTimeout(function() {
+        if (window.pywebview && !pywebviewReady) {
+          log('pywebview found after timeout');
+          pywebviewReady = true;
+          init();
+        } else if (!pywebviewReady) {
+          log('pywebview never became available, running in demo mode', 'warn');
+          init();
+        }
+      }, 2000);
+    }
+  });
 }
 </script>
 </body>
