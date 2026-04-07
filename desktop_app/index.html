@@ -490,6 +490,16 @@ table.dtable tr:hover td { background: var(--blue-lt); }
         <input id="cfg_pass" type="password" placeholder="••••••••">
       </div>
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Max Records (0 = unlimited)</label>
+        <input id="cfg_max_records" type="number" value="100000" placeholder="100000">
+      </div>
+      <div class="field">
+        <label>Page Size (records per request)</label>
+        <input id="cfg_page_size" type="number" value="10000" placeholder="10000">
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeCfg()">Cancel</button>
       <button class="btn btn-primary" onclick="saveCfg()">💾 Save &amp; Connect</button>
@@ -560,7 +570,9 @@ let cfg = {
   tokenUrl: 'https://auth.na1.data.vmwservices.com/oauth/token',
   clientId: '', clientSecret: '',
   intelBase: 'https://api.na1.data.workspaceone.com',
-  uemHost: '', awKey: '', og: '', user: '', pass: ''
+  uemHost: '', awKey: '', og: '', user: '', pass: '',
+  maxRecords: 100000,
+  pageSize: 10000
 };
 let allApps = [];
 let selApp = null;
@@ -622,8 +634,10 @@ async function saveCfg() {
   cfg.og         = document.getElementById('cfg_og').value.trim();
   cfg.user       = document.getElementById('cfg_user').value.trim();
   cfg.pass       = document.getElementById('cfg_pass').value.trim();
+  cfg.maxRecords = parseInt(document.getElementById('cfg_max_records').value) || 100000;
+  cfg.pageSize   = parseInt(document.getElementById('cfg_page_size').value) || 10000;
   
-  log(`Config: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}, clientSecret=${cfg.clientSecret ? '[SET]' : '[EMPTY]'}`);
+  log(`Config: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}, maxRecords=${cfg.maxRecords}, pageSize=${cfg.pageSize}`);
   
   // Save to Python backend
   if (pywebviewReady) {
@@ -689,9 +703,9 @@ function processRows(rows) {
       deviceId:   row['airwatch.device.device_id'] || '—',
       deviceName: row['airwatch.device.device_friendly_name'] || '—',
       userName:   row['airwatch.device.device_enrollment_user_name'] || '—',
-      email:      row['airwatch.device.device_enrollment_email_address'] || '—',
+      email:      row['airwatch.device.device_enrollment_user_email'] || '—',
       serial:     row['airwatch.device.device_serial_number'] || '—',
-      org:        row['airwatch.device.device_organization_group_name'] || '—',
+      org:        row['airwatch.device.device_location_group_name'] || '—',
       lastSeen:   lastSeenStr,
       daysSeen,
       status:     normStatus,
@@ -1249,7 +1263,7 @@ async function init() {
       
       if (result && result.success && result.data) {
         cfg = { ...cfg, ...result.data };
-        log(`Config loaded: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}`);
+        log(`Config loaded: clientId=${cfg.clientId ? '[SET]' : '[EMPTY]'}, maxRecords=${cfg.maxRecords}`);
         
         // Populate form fields
         document.getElementById('cfg_token_url').value = cfg.tokenUrl || '';
@@ -1261,6 +1275,8 @@ async function init() {
         document.getElementById('cfg_og').value = cfg.og || '';
         document.getElementById('cfg_user').value = cfg.user || '';
         document.getElementById('cfg_pass').value = cfg.pass || '';
+        document.getElementById('cfg_max_records').value = cfg.maxRecords || 100000;
+        document.getElementById('cfg_page_size').value = cfg.pageSize || 10000;
       }
     } catch(e) {
       log(`Error loading config: ${e.message}`, 'error');
@@ -1275,6 +1291,12 @@ async function init() {
   }
   if (!document.getElementById('cfg_intel_base').value) {
     document.getElementById('cfg_intel_base').value = cfg.intelBase;
+  }
+  if (!document.getElementById('cfg_max_records').value) {
+    document.getElementById('cfg_max_records').value = cfg.maxRecords || 100000;
+  }
+  if (!document.getElementById('cfg_page_size').value) {
+    document.getElementById('cfg_page_size').value = cfg.pageSize || 10000;
   }
   
   log('Init complete, loading data...');

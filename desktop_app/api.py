@@ -89,10 +89,19 @@ class WS1API:
             logger.error(f"Connection error: {e}")
             raise Exception(f'Cannot connect to auth server: {e}')
     
-    def fetch_intelligence_data(self, app_type_filter=''):
-        """Fetch all application data from Intelligence GraphQL API."""
+    def fetch_intelligence_data(self, app_type_filter='', max_records=0, page_size=10000):
+        """
+        Fetch all application data from Intelligence GraphQL API.
+        
+        Args:
+            app_type_filter: Filter by app type (optional)
+            max_records: Maximum records to fetch (0 = unlimited)
+            page_size: Records per API call (default 10000)
+        """
         logger.info("="*50)
         logger.info("Fetching Intelligence data...")
+        logger.info(f"  Max records: {max_records if max_records > 0 else 'unlimited'}")
+        logger.info(f"  Page size: {page_size}")
         logger.info("="*50)
         
         token = self.get_token()
@@ -101,8 +110,8 @@ class WS1API:
         
         all_results = []
         offset = 0
-        page_size = 5000
         
+        # Updated field names as per latest API
         fields = [
             'airwatch.application.app_id',
             'airwatch.application.app_name',
@@ -118,8 +127,8 @@ class WS1API:
             'airwatch.device.device_enrollment_user_name',
             'airwatch.device.device_enrollment_status',
             'airwatch.device.device_serial_number',
-            'airwatch.device.device_organization_group_name',
-            'airwatch.device.device_enrollment_email_address',
+            'airwatch.device.device_location_group_name',
+            'airwatch.device.device_enrollment_user_email',
             'airwatch.device.device_last_seen',
         ]
         
@@ -186,6 +195,13 @@ class WS1API:
                 logger.info(f"Got {len(results)} records. Total so far: {len(all_results)} of {total}")
                 
                 offset += page_size
+                
+                # Check if we've hit the max records limit
+                if max_records > 0 and len(all_results) >= max_records:
+                    logger.info(f"Reached max records limit ({max_records}), stopping fetch")
+                    all_results = all_results[:max_records]
+                    break
+                
                 if offset >= total:
                     break
                     

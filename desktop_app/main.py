@@ -129,9 +129,17 @@ class PythonAPI:
             logger.info("Creating WS1API client...")
             self._ws1_api = WS1API(self._config)
             
-            # Fetch data
-            logger.info("Calling fetch_intelligence_data()...")
-            rows = self._ws1_api.fetch_intelligence_data()
+            # Get fetch settings from config
+            max_records = int(self._config.get('maxRecords', 100000) or 0)
+            page_size = int(self._config.get('pageSize', 10000) or 10000)
+            
+            # Fetch data with limits
+            logger.info(f"Calling fetch_intelligence_data(max={max_records}, pageSize={page_size})...")
+            rows = self._ws1_api.fetch_intelligence_data(
+                app_type_filter='',
+                max_records=max_records,
+                page_size=page_size
+            )
             
             logger.info(f"SUCCESS: Retrieved {len(rows)} records")
             return {
@@ -241,14 +249,14 @@ def main():
         # Set window reference in API
         api.set_window(window)
         
-        logger.info("Starting webview (debug=True)...")
+        logger.info("Starting webview...")
         print("\n" + "="*60)
         print("Application starting...")
         print("Check 'ws1_app.log' for detailed logs")
         print("="*60 + "\n")
         
-        # Start webview with debug enabled
-        webview.start(debug=True)
+        # Start webview (debug=False to hide Chrome DevTools)
+        webview.start(debug=False)
         
         logger.info("Application closed normally")
         

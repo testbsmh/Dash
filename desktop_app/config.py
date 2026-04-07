@@ -44,7 +44,9 @@ class Config:
             'awKey': '',
             'og': '',
             'user': '',
-            'pass': ''
+            'pass': '',
+            'maxRecords': 100000,  # Limit records to fetch (0 = unlimited)
+            'pageSize': 10000     # Records per API call
         }
     
     def _load(self):
