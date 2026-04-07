@@ -32,6 +32,8 @@ Convert an HTML WorkspaceONE App Intelligence dashboard to a Python desktop appl
 - [x] Demo mode with sample data
 - [x] CSV export functionality
 - [x] All tests passing (100%)
+- [x] **BUG FIX**: Fixed PyWebView serialization error with pathlib.Path objects
+- [x] **ENHANCEMENT**: Added extensive logging (console + ws1_app.log file)
 
 ## Project Structure
 ```
