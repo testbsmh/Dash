@@ -89,20 +89,32 @@ class WS1API:
             logger.error(f"Connection error: {e}")
             raise Exception(f'Cannot connect to auth server: {e}')
     
-    def fetch_intelligence_data(self, app_type_filter='', max_records=0, page_size=10000):
+    def fetch_intelligence_data(self, app_type_filter='', max_records=0, page_size=1000):
         """
         Fetch all application data from Intelligence GraphQL API.
         
         Args:
             app_type_filter: Filter by app type (optional)
-            max_records: Maximum records to fetch (0 = unlimited)
-            page_size: Records per API call (default 10000)
+            max_records: Maximum records to fetch (0 = unlimited, but API has limits)
+            page_size: Records per API call (MAX 1000 per API spec)
+        
+        Note: WorkspaceONE Intelligence API has Elasticsearch limits:
+        - Max page_size: 1000
+        - Max offset: ~10,000 (offset + page_size must be <= 10,000)
+        
+        For datasets > 10,000 records, use filters to segment data.
         """
         logger.info("="*50)
         logger.info("Fetching Intelligence data...")
-        logger.info(f"  Max records: {max_records if max_records > 0 else 'unlimited'}")
-        logger.info(f"  Page size: {page_size}")
         logger.info("="*50)
+        
+        # API enforces max 1000 per page
+        if page_size > 1000:
+            logger.warning(f"Page size {page_size} exceeds API limit, using 1000")
+            page_size = 1000
+        
+        logger.info(f"  Page size: {page_size}")
+        logger.info(f"  Max records: {max_records if max_records > 0 else 'API limit (~10,000)'}")
         
         token = self.get_token()
         
@@ -110,6 +122,9 @@ class WS1API:
         
         all_results = []
         offset = 0
+        
+        # Elasticsearch limit: offset + page_size <= 10000
+        MAX_ELASTICSEARCH_OFFSET = 10000
         
         # Updated field names as per latest API
         fields = [
@@ -195,6 +210,13 @@ class WS1API:
                 logger.info(f"Got {len(results)} records. Total so far: {len(all_results)} of {total}")
                 
                 offset += page_size
+                
+                # Check Elasticsearch offset limit
+                if offset >= MAX_ELASTICSEARCH_OFFSET:
+                    logger.warning(f"Reached Elasticsearch offset limit ({MAX_ELASTICSEARCH_OFFSET})")
+                    logger.warning(f"Total available: {total}, Retrieved: {len(all_results)}")
+                    logger.warning("To get more data, use app_type filters to segment your queries")
+                    break
                 
                 # Check if we've hit the max records limit
                 if max_records > 0 and len(all_results) >= max_records:

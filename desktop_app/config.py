@@ -45,8 +45,8 @@ class Config:
             'og': '',
             'user': '',
             'pass': '',
-            'maxRecords': 100000,  # Limit records to fetch (0 = unlimited)
-            'pageSize': 10000     # Records per API call
+            'maxRecords': 10000,   # API limit is ~10,000 due to Elasticsearch
+            'pageSize': 1000      # API max is 1000 per request
         }
     
     def _load(self):

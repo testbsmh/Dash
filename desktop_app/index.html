@@ -492,13 +492,16 @@ table.dtable tr:hover td { background: var(--blue-lt); }
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Max Records (0 = unlimited)</label>
-        <input id="cfg_max_records" type="number" value="100000" placeholder="100000">
+        <label>Max Records (API limit ~10,000)</label>
+        <input id="cfg_max_records" type="number" value="10000" placeholder="10000">
       </div>
       <div class="field">
-        <label>Page Size (records per request)</label>
-        <input id="cfg_page_size" type="number" value="10000" placeholder="10000">
+        <label>Page Size (API max 1000)</label>
+        <input id="cfg_page_size" type="number" value="1000" placeholder="1000" max="1000">
       </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+      ⚠️ <b>API Limits:</b> WorkspaceONE Intelligence uses Elasticsearch with max 1000/page and ~10,000 total offset limit. For larger datasets, use filters by app type.
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeCfg()">Cancel</button>
@@ -519,8 +522,14 @@ table.dtable tr:hover td { background: var(--blue-lt); }
   <div class="header-divider"></div>
   <div class="header-status" id="hdrStatus">● Not connected · Demo mode</div>
   <div class="header-actions">
-    <button class="btn btn-outline btn-sm" onclick="openCfg()">⚙ Configure API</button>
-    <button class="btn btn-outline btn-sm" onclick="exportAppsCSV()">⬇ Export Apps</button>
+    <select id="syncFilter" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;">
+      <option value="">All App Types</option>
+      <option value="Internal">Internal Only</option>
+      <option value="Purchased">Purchased Only</option>
+      <option value="Public">Public Only</option>
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="openCfg()">⚙ Configure</button>
+    <button class="btn btn-outline btn-sm" onclick="exportAppsCSV()">⬇ Export</button>
     <button class="btn btn-primary btn-sm" onclick="loadAllData()">↻ Sync Data</button>
   </div>
 </header>
@@ -571,8 +580,8 @@ let cfg = {
   clientId: '', clientSecret: '',
   intelBase: 'https://api.na1.data.workspaceone.com',
   uemHost: '', awKey: '', og: '', user: '', pass: '',
-  maxRecords: 100000,
-  pageSize: 10000
+  maxRecords: 10000,  // API limit ~10,000 due to Elasticsearch
+  pageSize: 1000      // API max 1000 per request
 };
 let allApps = [];
 let selApp = null;
@@ -831,14 +840,18 @@ async function loadAllData() {
   log('loadAllData() called - Starting sync...');
   log('='.repeat(50));
   
-  showLoading('Syncing Data…', 'Connecting to WorkspaceONE');
+  // Get selected app type filter
+  const appTypeFilter = document.getElementById('syncFilter')?.value || '';
+  log(`App type filter: ${appTypeFilter || 'All'}`);
+  
+  showLoading('Syncing Data…', appTypeFilter ? `Filtering: ${appTypeFilter}` : 'All app types');
   
   try {
     if (pywebviewReady) {
       log('Calling Python fetch_data()...');
       showLoading('Fetching Data…', 'Calling Python API');
       
-      const result = await pyCall('fetch_data');
+      const result = await pyCall('fetch_data', appTypeFilter);
       
       log(`fetch_data result: success=${result?.success}, demo=${result?.demo}, count=${result?.count}, error=${result?.error}`);
       
@@ -1293,10 +1306,10 @@ async function init() {
     document.getElementById('cfg_intel_base').value = cfg.intelBase;
   }
   if (!document.getElementById('cfg_max_records').value) {
-    document.getElementById('cfg_max_records').value = cfg.maxRecords || 100000;
+    document.getElementById('cfg_max_records').value = cfg.maxRecords || 10000;
   }
   if (!document.getElementById('cfg_page_size').value) {
-    document.getElementById('cfg_page_size').value = cfg.pageSize || 10000;
+    document.getElementById('cfg_page_size').value = cfg.pageSize || 1000;
   }
   
   log('Init complete, loading data...');
