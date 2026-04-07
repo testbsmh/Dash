@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkspaceONE · App Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f6fa;
+  --white: #ffffff;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e8eaf0;
+  --border2: #d8dce8;
+  --text: #1a1d2e;
+  --text2: #4a5068;
+  --text3: #8c91a9;
+  --blue: #3b6ef8;
+  --blue-lt: #e8effe;
+  --blue-md: #c0cffe;
+  --green: #16a34a;
+  --green-lt: #dcfce7;
+  --yellow: #d97706;
+  --yellow-lt: #fef3c7;
+  --red: #dc2626;
+  --red-lt: #fee2e2;
+  --purple: #7c3aed;
+  --purple-lt: #ede9fe;
+  --cyan: #0891b2;
+  --cyan-lt: #cffafe;
+  --orange: #ea580c;
+  --orange-lt: #ffedd5;
+  --pink: #db2777;
+  --pink-lt: #fce7f3;
+  --sans: 'Plus Jakarta Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --shadow-sm: 0 1px 3px rgba(26,29,46,0.08), 0 1px 2px rgba(26,29,46,0.04);
+  --shadow: 0 4px 12px rgba(26,29,46,0.10), 0 2px 4px rgba(26,29,46,0.06);
+  --shadow-lg: 0 10px 30px rgba(26,29,46,0.12), 0 4px 8px rgba(26,29,46,0.06);
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── HEADER ── */
+header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: sticky; top: 0; z-index: 100;
+  height: 58px;
+  display: flex; align-items: center; padding: 0 24px; gap: 16px;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px; text-decoration: none;
+}
+.logo-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--blue) 0%, #6b8af9 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 16px; flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(59,110,248,0.35);
+}
+.logo-text { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+.logo-sub { font-size: 11px; font-weight: 400; color: var(--text3); }
+.header-divider { width: 1px; height: 28px; background: var(--border); }
+.header-status {
+  font-size: 11px; color: var(--text3); font-family: var(--mono);
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 6px;
+}
+.header-status.connected { color: var(--green); background: var(--green-lt); border-color: #bbf7d0; }
+.header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  border: none; transition: all .15s; text-decoration: none;
+}
+.btn-outline {
+  background: var(--white); border: 1.5px solid var(--border2);
+  color: var(--text2);
+}
+.btn-outline:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
+.btn-primary { background: var(--blue); color: white; box-shadow: 0 2px 6px rgba(59,110,248,0.3); }
+.btn-primary:hover { background: #2954e8; box-shadow: 0 4px 10px rgba(59,110,248,0.4); }
+.btn-success { background: var(--green); color: white; box-shadow: 0 2px 6px rgba(22,163,74,0.3); }
+.btn-success:hover { background: #15803d; }
+.btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
+
+/* ── CONFIG MODAL ── */
+.overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(26,29,46,0.5); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: 16px;
+  box-shadow: var(--shadow-lg); width: 520px; padding: 32px;
+  animation: modalIn .2s ease;
+}
+@keyframes modalIn { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }
+.modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.modal-icon { width: 42px; height: 42px; border-radius: 10px; background: var(--blue-lt); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.modal-title { font-size: 18px; font-weight: 700; color: var(--text); }
+.modal-subtitle { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em; }
+.field input, .field select {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text); font-family: var(--sans); font-size: 13px;
+  padding: 9px 12px; border-radius: 8px; outline: none; transition: border-color .15s;
+}
+.field input:focus, .field select:focus { border-color: var(--blue); background: white; box-shadow: 0 0 0 3px rgba(59,110,248,0.12); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+/* ── LAYOUT ── */
+.layout { display: flex; height: calc(100vh - 58px); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 310px; flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-top {
+  padding: 14px 14px 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.sidebar-label {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.badge-pill {
+  background: var(--blue-lt); color: var(--blue);
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+  font-family: var(--mono);
+}
+
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-wrap input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text); font-family: var(--sans); font-size: 12px;
+  padding: 8px 12px 8px 34px; border-radius: 8px; outline: none; transition: all .15s;
+}
+.search-wrap input:focus { border-color: var(--blue); background: white; box-shadow: 0 0 0 3px rgba(59,110,248,0.1); }
+.search-wrap input::placeholder { color: var(--text3); }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; pointer-events: none; }
+
+.pill-tabs { display: flex; gap: 4px; padding: 8px 14px; overflow-x: auto; background: var(--surface2); border-bottom: 1px solid var(--border); }
+.pill-tabs::-webkit-scrollbar { height: 0; }
+.pill-tab {
+  white-space: nowrap; font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  color: var(--text3); background: transparent; border: 1px solid transparent;
+  transition: all .12s;
+}
+.pill-tab:hover { color: var(--text2); background: var(--border); }
+.pill-tab.active { background: var(--blue); color: white; border-color: var(--blue); }
+
+.app-list { flex: 1; overflow-y: auto; }
+.app-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .1s;
+  border-left: 3px solid transparent;
+}
+.app-item:hover { background: var(--surface2); }
+.app-item.sel { background: var(--blue-lt); border-left-color: var(--blue); }
+.app-avatar {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  border: 1px solid var(--border);
+}
+.app-meta { flex: 1; min-width: 0; }
+.app-meta-name { font-weight: 600; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-meta-bundle { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-meta-row { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+
+.tag { font-family: var(--mono); font-size: 9px; font-weight: 500; padding: 2px 6px; border-radius: 4px; }
+.tag-ios { background: var(--cyan-lt); color: var(--cyan); }
+.tag-android { background: var(--green-lt); color: var(--green); }
+.tag-macos { background: var(--purple-lt); color: var(--purple); }
+.tag-windows { background: var(--blue-lt); color: var(--blue); }
+.tag-internal { background: var(--orange-lt); color: var(--orange); }
+.tag-purchased { background: var(--pink-lt); color: var(--pink); }
+.tag-public { background: var(--green-lt); color: var(--green); }
+.tag-ver { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+
+.sidebar-empty { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 12px; }
+.sidebar-spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── DETAIL ── */
+.detail { flex: 1; overflow-y: auto; background: var(--bg); }
+.empty-detail {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  color: var(--text3);
+}
+.empty-detail svg { opacity: .25; }
+.empty-detail p { font-size: 13px; }
+
+/* ── APP HEADER ── */
+.app-header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 28px 16px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+}
+.app-header-left { display: flex; align-items: flex-start; gap: 16px; }
+.app-header-icon { width: 60px; height: 60px; border-radius: 14px; font-size: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); flex-shrink: 0; }
+.app-title { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; line-height: 1.2; }
+.app-meta-line { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 3px; display: flex; gap: 18px; flex-wrap: wrap; }
+.app-meta-line span { display: flex; align-items: center; gap: 4px; }
+.app-badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.app-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* ── CONTENT SECTIONS ── */
+.content { padding: 20px 28px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ── STAT CARDS ── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+  box-shadow: var(--shadow-sm); transition: box-shadow .15s;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.stat-card:hover { box-shadow: var(--shadow); }
+.sc-total::before { background: var(--blue); }
+.sc-installed::before { background: var(--green); }
+.sc-pending::before { background: var(--yellow); }
+.sc-assigned::before { background: var(--purple); }
+.sc-unassigned::before { background: var(--red); }
+.sc-d30::before { background: var(--green); }
+.sc-d60::before { background: var(--yellow); }
+.sc-d90::before { background: var(--red); }
+
+.stat-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.stat-val { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+.sc-total .stat-val { color: var(--blue); }
+.sc-installed .stat-val { color: var(--green); }
+.sc-pending .stat-val { color: var(--yellow); }
+.sc-assigned .stat-val { color: var(--purple); }
+.sc-unassigned .stat-val { color: var(--red); }
+.sc-d30 .stat-val { color: var(--green); }
+.sc-d60 .stat-val { color: var(--yellow); }
+.sc-d90 .stat-val { color: var(--red); }
+.stat-desc { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ── CARD ── */
+.card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.card-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-size: 12px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .07em;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title-dot { width: 8px; height: 8px; border-radius: 50%; }
+.card-body { padding: 16px 18px; }
+
+/* ── ASSIGNMENT CHIPS ── */
+.assign-grid { display: flex; flex-direction: column; gap: 8px; }
+.assign-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+}
+.assign-icon { font-size: 18px; width: 32px; text-align: center; }
+.assign-name { font-weight: 600; font-size: 13px; }
+.assign-scope { font-size: 11px; color: var(--text3); }
+.assign-right { margin-left: auto; }
+.badge-required { background: var(--blue-lt); color: var(--blue); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px; font-family: var(--mono); }
+.badge-optional { background: var(--surface2); color: var(--text3); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 5px; border: 1px solid var(--border); font-family: var(--mono); }
+
+/* ── VERSION TABLE ── */
+.ver-table { width: 100%; border-collapse: collapse; }
+.ver-table th { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.ver-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.ver-table tr:last-child td { border-bottom: none; }
+.ver-table tr:hover td { background: var(--surface2); }
+.ver-chip { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 5px; display: inline-block; }
+.ver-latest { background: var(--green-lt); color: var(--green); }
+.ver-old { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-bg { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+.bar-n { font-family: var(--mono); font-size: 11px; color: var(--text2); min-width: 30px; text-align: right; }
+
+/* ── DEVICE TABLE SECTION ── */
+.device-controls {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.dev-search { position: relative; flex: 1; min-width: 200px; }
+.dev-search input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  font-family: var(--sans); font-size: 12px; color: var(--text);
+  padding: 7px 12px 7px 30px; border-radius: 7px; outline: none; transition: all .15s;
+}
+.dev-search input:focus { border-color: var(--blue); background: white; box-shadow: 0 0 0 3px rgba(59,110,248,0.1); }
+.dev-search input::placeholder { color: var(--text3); }
+.dev-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fchip {
+  font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+  border: 1.5px solid var(--border); cursor: pointer; color: var(--text3);
+  background: white; transition: all .12s; white-space: nowrap;
+}
+.fchip:hover { color: var(--text2); border-color: var(--border2); }
+.fchip.fc-all.on { background: var(--blue); color: white; border-color: var(--blue); }
+.fchip.fc-installed.on { background: var(--green-lt); color: var(--green); border-color: var(--green); }
+.fchip.fc-pending.on { background: var(--yellow-lt); color: var(--yellow); border-color: var(--yellow); }
+.fchip.fc-assigned.on { background: var(--purple-lt); color: var(--purple); border-color: var(--purple); }
+.fchip.fc-unassigned.on { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+
+.table-wrap { overflow-x: auto; }
+table.dtable { width: 100%; border-collapse: collapse; min-width: 860px; }
+table.dtable th {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .07em;
+  padding: 9px 14px; text-align: left; background: var(--surface2);
+  border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none;
+}
+table.dtable th:hover { color: var(--text2); }
+table.dtable th .sort-arrow { margin-left: 3px; opacity: .4; }
+table.dtable td { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 12px; }
+table.dtable tr:last-child td { border-bottom: none; }
+table.dtable tr:hover td { background: var(--blue-lt); }
+.td-id { font-family: var(--mono); font-size: 10px; color: var(--blue); font-weight: 500; }
+.td-serial { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.td-email { color: var(--text3); font-size: 11px; }
+.ist-badge {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  padding: 3px 7px; border-radius: 4px; display: inline-block; white-space: nowrap;
+}
+.ist-installed { background: var(--green-lt); color: var(--green); }
+.ist-pending { background: var(--yellow-lt); color: var(--yellow); }
+.ist-assigned { background: var(--purple-lt); color: var(--purple); }
+.ist-unassigned { background: var(--red-lt); color: var(--red); }
+.seen-chip {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  padding: 3px 7px; border-radius: 4px; display: inline-block;
+}
+.seen-30 { background: var(--green-lt); color: var(--green); }
+.seen-60 { background: var(--yellow-lt); color: var(--yellow); }
+.seen-90 { background: var(--red-lt); color: #f87171; }
+.seen-stale { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+
+/* ── PAGINATION ── */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text3);
+}
+.page-btns { display: flex; gap: 4px; }
+.pbtn {
+  font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: white; color: var(--text2);
+  cursor: pointer; transition: all .12s; font-family: var(--mono);
+}
+.pbtn:hover { border-color: var(--blue); color: var(--blue); }
+.pbtn.cur { background: var(--blue); color: white; border-color: var(--blue); }
+.pbtn:disabled { opacity: .35; pointer-events: none; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  background: var(--text); color: white;
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  padding: 12px 20px; border-radius: 10px; box-shadow: var(--shadow-lg);
+  transform: translateY(60px); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  max-width: 340px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.toast-err { background: var(--red); }
+#toast.toast-ok { background: var(--green); }
+
+/* ── LOADING OVERLAY ── */
+#loadingOverlay {
+  display: none; position: fixed; inset: 0; z-index: 150;
+  background: rgba(245,246,250,0.85); backdrop-filter: blur(3px);
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+}
+#loadingOverlay.show { display: flex; }
+.load-spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+.load-msg { font-size: 14px; font-weight: 600; color: var(--text2); }
+.load-sub { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+.no-data { padding: 40px; text-align: center; color: var(--text3); font-size: 12px; }
+
+/* Responsive stats */
+@media (max-width: 1100px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay">
+  <div class="load-spinner"></div>
+  <div class="load-msg" id="loadMsg">Loading apps…</div>
+  <div class="load-sub" id="loadSub">Please wait</div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="overlay" id="cfgModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-icon">⚙️</div>
+      <div>
+        <div class="modal-title">API Configuration</div>
+        <div class="modal-subtitle">WorkspaceONE Intelligence &amp; UEM credentials</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>OAuth Token URL</label>
+      <input id="cfg_token_url" value="https://auth.na1.data.vmwservices.com/oauth/token">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Client ID</label>
+        <input id="cfg_client_id" placeholder="pw4af.data.vmwservices.com">
+      </div>
+      <div class="field">
+        <label>Client Secret</label>
+        <input id="cfg_client_secret" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="field">
+      <label>Intelligence API Base (for app data)</label>
+      <input id="cfg_intel_base" value="https://api.na1.data.workspaceone.com">
+    </div>
+    <div class="field">
+      <label>UEM API Host (for assignments)</label>
+      <input id="cfg_uem_host" placeholder="https://yourenv.awmdm.com">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>UEM API Key (aw-tenant-code)</label>
+        <input id="cfg_aw_key" placeholder="xxxxxxxxxxxxxxxx">
+      </div>
+      <div class="field">
+        <label>UEM Org Group ID</label>
+        <input id="cfg_og" placeholder="7">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>UEM Username</label>
+        <input id="cfg_user" placeholder="admin">
+      </div>
+      <div class="field">
+        <label>UEM Password</label>
+        <input id="cfg_pass" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCfg()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCfg()">💾 Save &amp; Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-mark">🔷</div>
+    <div>
+      <div class="logo-text">WS1 App Intelligence</div>
+      <div class="logo-sub">WorkspaceONE Dashboard</div>
+    </div>
+  </a>
+  <div class="header-divider"></div>
+  <div class="header-status" id="hdrStatus">● Not connected · Demo mode</div>
+  <div class="header-actions">
+    <button class="btn btn-outline btn-sm" onclick="openCfg()">⚙ Configure API</button>
+    <button class="btn btn-outline btn-sm" onclick="exportAppsCSV()">⬇ Export Apps</button>
+    <button class="btn btn-primary btn-sm" onclick="loadAllData()">↻ Sync Data</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-label">
+        Applications
+        <span class="badge-pill" id="appCountBadge">0</span>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="appSearch" placeholder="Search name, bundle ID, version…" oninput="filterApps()">
+      </div>
+    </div>
+    <div class="pill-tabs">
+      <div class="pill-tab active" onclick="setFilter('all',this)">All</div>
+      <div class="pill-tab" onclick="setFilter('Internal',this)">Internal</div>
+      <div class="pill-tab" onclick="setFilter('Purchased',this)">Purchased</div>
+      <div class="pill-tab" onclick="setFilter('Public',this)">Public</div>
+      <div class="pill-tab" onclick="setFilter('iOS',this)">iOS</div>
+      <div class="pill-tab" onclick="setFilter('Android',this)">Android</div>
+      <div class="pill-tab" onclick="setFilter('macOS',this)">macOS</div>
+      <div class="pill-tab" onclick="setFilter('Windows',this)">Windows</div>
+    </div>
+    <div class="app-list" id="appList">
+      <div class="sidebar-empty">Click <b>Sync Data</b> to load applications<br>or configure API credentials first.</div>
+    </div>
+  </aside>
+
+  <!-- DETAIL -->
+  <main class="detail" id="detail">
+    <div class="empty-detail">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="12" fill="#E8EFFE"/><path d="M20 44V24a4 4 0 014-4h16a4 4 0 014 4v20" stroke="#3B6EF8" stroke-width="2.5" stroke-linecap="round"/><path d="M16 44h32M26 28h12M26 34h8" stroke="#3B6EF8" stroke-width="2" stroke-linecap="round"/></svg>
+      <p>Select an application to view details</p>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let cfg = {
+  tokenUrl: 'https://auth.na1.data.vmwservices.com/oauth/token',
+  clientId: '', clientSecret: '',
+  intelBase: 'https://api.na1.data.workspaceone.com',
+  uemHost: '', awKey: '', og: '', user: '', pass: ''
+};
+let allApps = [];
+let selApp = null;
+let filterKey = 'all';
+let devFilter = 'all';
+let devSearch = '';
+let devPage = 1;
+const PAGE = 15;
+
+// Check if running in pywebview
+const isPyWebView = typeof pywebview !== 'undefined';
+
+// ─── PYTHON API BRIDGE ──────────────────────────────────────────────────────
+async function pyCall(method, ...args) {
+  if (isPyWebView && pywebview.api) {
+    return await pywebview.api[method](...args);
+  }
+  return null;
+}
+
+// ─── UI HELPERS ─────────────────────────────────────────────────────────────
+function openCfg() { document.getElementById('cfgModal').classList.add('open'); }
+function closeCfg() { document.getElementById('cfgModal').classList.remove('open'); }
+
+async function saveCfg() {
+  cfg.tokenUrl   = document.getElementById('cfg_token_url').value.trim();
+  cfg.clientId   = document.getElementById('cfg_client_id').value.trim();
+  cfg.clientSecret = document.getElementById('cfg_client_secret').value.trim();
+  cfg.intelBase  = document.getElementById('cfg_intel_base').value.trim().replace(/\/$/,'');
+  cfg.uemHost    = document.getElementById('cfg_uem_host').value.trim().replace(/\/$/,'');
+  cfg.awKey      = document.getElementById('cfg_aw_key').value.trim();
+  cfg.og         = document.getElementById('cfg_og').value.trim();
+  cfg.user       = document.getElementById('cfg_user').value.trim();
+  cfg.pass       = document.getElementById('cfg_pass').value.trim();
+  
+  // Save to Python backend if available
+  if (isPyWebView) {
+    await pyCall('save_config', cfg);
+  }
+  
+  closeCfg();
+  toast('Configuration saved', 'ok');
+}
+
+function toast(msg, type='', dur=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show${type ? ' toast-'+type : ''}`;
+  setTimeout(() => { t.className = ''; }, dur);
+}
+
+function showLoading(msg, sub='') {
+  document.getElementById('loadMsg').textContent = msg;
+  document.getElementById('loadSub').textContent = sub;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+// ─── DATA PROCESSING ─────────────────────────────────────────────────────────
+function processRows(rows) {
+  const appMap = new Map();
+
+  for (const row of rows) {
+    const appId     = row['airwatch.application.app_id'] || row['airwatch.application.app_package_id'] || 'unknown';
+    const appName   = row['airwatch.application.app_name'] || '—';
+    const packageId = row['airwatch.application.app_package_id'] || '—';
+    const version   = row['airwatch.application.app_version'] || '—';
+    const assignedV = row['airwatch.application.app_assigned_version'] || '—';
+    const appType   = row['airwatch.application.app_type'] || 'Public';
+    const platform  = row['airwatch.application._device_platform'] || '—';
+    const installStatus = row['airwatch.application.app_install_status'] || '';
+    const isInstalled   = row['airwatch.application.app_is_installed'];
+
+    let normStatus = 'pending';
+    const s = (installStatus || '').toLowerCase();
+    if (isInstalled === true || s.includes('install') && !s.includes('not') && !s.includes('pending')) normStatus = 'installed';
+    else if (s.includes('pending')) normStatus = 'pending';
+    else if (s.includes('assigned') && s.includes('not')) normStatus = 'assigned';
+    else if (s.includes('not assigned') || (isInstalled === true && !s.includes('assigned'))) normStatus = 'unassigned';
+    if (isInstalled === true && !s.includes('not')) normStatus = 'installed';
+    if (isInstalled === false && s.includes('assigned')) normStatus = 'assigned';
+
+    const lastSeenMs = row['airwatch.device.device_last_seen'];
+    const lastSeenDate = lastSeenMs ? new Date(lastSeenMs) : null;
+    const lastSeenStr = lastSeenDate ? lastSeenDate.toISOString().split('T')[0] : '—';
+    const daysSeen = lastSeenDate ? Math.floor((Date.now() - lastSeenDate.getTime()) / 864e5) : 999;
+
+    const device = {
+      deviceId:   row['airwatch.device.device_id'] || '—',
+      deviceName: row['airwatch.device.device_friendly_name'] || '—',
+      userName:   row['airwatch.device.device_enrollment_user_name'] || '—',
+      email:      row['airwatch.device.device_enrollment_email_address'] || '—',
+      serial:     row['airwatch.device.device_serial_number'] || '—',
+      org:        row['airwatch.device.device_organization_group_name'] || '—',
+      lastSeen:   lastSeenStr,
+      daysSeen,
+      status:     normStatus,
+      version
+    };
+
+    const key = appId + '|' + platform;
+    if (!appMap.has(key)) {
+      appMap.set(key, {
+        id: appId, name: appName, bundle: packageId,
+        platform: normalizePlatform(platform),
+        type: appType, version: assignedV !== '—' ? assignedV : version,
+        icon: iconFor(platform),
+        devices: { installed:[], pending:[], assigned:[], unassigned:[] },
+        versions: new Map(),
+        assignments: []
+      });
+    }
+    const app = appMap.get(key);
+
+    if (!app.versions.has(version)) app.versions.set(version, 0);
+    app.versions.set(version, app.versions.get(version) + 1);
+
+    const bucket = normStatus === 'installed' ? 'installed'
+                 : normStatus === 'pending'   ? 'pending'
+                 : normStatus === 'assigned'  ? 'assigned'
+                 : 'unassigned';
+    app.devices[bucket].push(device);
+  }
+
+  const apps = [];
+  for (const [, app] of appMap) {
+    const verEntries = [...app.versions.entries()].sort((a,b)=>b[1]-a[1]);
+    app.versions = verEntries.map(([v,c],i)=>({ ver:v, count:c, latest:i===0 }));
+    app.totalDevices = app.devices.installed.length + app.devices.pending.length
+                     + app.devices.assigned.length + app.devices.unassigned.length;
+    apps.push(app);
+  }
+  return apps.sort((a,b) => a.name.localeCompare(b.name));
+}
+
+function normalizePlatform(p) {
+  if (!p) return 'Unknown';
+  const pl = p.toLowerCase();
+  if (pl.includes('ios') || pl.includes('iphone') || pl.includes('ipad')) return 'iOS';
+  if (pl.includes('android')) return 'Android';
+  if (pl.includes('mac')) return 'macOS';
+  if (pl.includes('windows') || pl.includes('win')) return 'Windows';
+  return p;
+}
+
+function iconFor(p) {
+  const pl = (p||'').toLowerCase();
+  if (pl.includes('ios') || pl.includes('iphone')) return '📱';
+  if (pl.includes('android')) return '🤖';
+  if (pl.includes('mac')) return '🖥️';
+  if (pl.includes('windows') || pl.includes('win')) return '🪟';
+  return '📦';
+}
+
+function bgFor(p) {
+  const m = { iOS:'#EFF6FF', Android:'#F0FDF4', macOS:'#FAF5FF', Windows:'#EFF6FF' };
+  return m[p] || '#F8FAFC';
+}
+
+// ─── DEMO DATA ───────────────────────────────────────────────────────────────
+function makeDemoDevice(status, idx) {
+  const orgs   = ['HQ', 'EMEA', 'APAC', 'NA-Sales', 'IT', 'Field-Ops'];
+  const users  = [['jsmith','john.smith@corp.com'],['amiller','alice.miller@corp.com'],
+                  ['bwang','brian.wang@corp.com'],['sreza','sara.reza@corp.com'],
+                  ['tkowalski','tom.kowalski@corp.com'],['nclarke','nina.clarke@corp.com']];
+  const u = users[idx % users.length];
+  const days = Math.floor(Math.random() * 110);
+  return {
+    deviceId: 'DEV' + Math.random().toString(36).substr(2,7).toUpperCase(),
+    deviceName: `Device-${Math.floor(Math.random()*9999)}`,
+    userName: u[0], email: u[1],
+    serial: 'S' + Math.random().toString(36).substr(2,8).toUpperCase(),
+    org: orgs[idx % orgs.length],
+    lastSeen: new Date(Date.now() - days*864e5).toISOString().split('T')[0],
+    daysSeen: days, status, version: ''
+  };
+}
+
+function generateDemoData() {
+  const specs = [
+    { name:'Corporate Portal',   bundle:'com.corp.portal',       platform:'iOS',     type:'Internal', ver:'4.2.1', installed:60,pending:8,assigned:4,unassigned:3 },
+    { name:'Microsoft Teams',    bundle:'com.microsoft.teams',   platform:'iOS',     type:'Purchased',ver:'5.10.2',installed:120,pending:12,assigned:5,unassigned:6 },
+    { name:'Okta Verify',        bundle:'com.okta.verify',       platform:'Android', type:'Public',   ver:'7.24.0',installed:89,pending:5,assigned:3,unassigned:2 },
+    { name:'Field Service App',  bundle:'com.corp.fieldservice',  platform:'Android', type:'Internal', ver:'2.0.5', installed:42,pending:10,assigned:6,unassigned:4 },
+    { name:'WS1 Boxer',          bundle:'com.air-watch.boxer',   platform:'iOS',     type:'Purchased',ver:'24.02', installed:75,pending:7,assigned:4,unassigned:5 },
+    { name:'macOS Endpoint Mgr', bundle:'com.corp.macagent',     platform:'macOS',   type:'Internal', ver:'3.1.0', installed:38,pending:4,assigned:2,unassigned:1 },
+    { name:'Zoom',               bundle:'us.zoom.videomeetings', platform:'iOS',     type:'Public',   ver:'5.17.6',installed:95,pending:9,assigned:3,unassigned:4 },
+    { name:'Windows Security',   bundle:'com.corp.winsec',       platform:'Windows', type:'Internal', ver:'1.4.2', installed:55,pending:6,assigned:3,unassigned:2 },
+    { name:'ServiceNow',         bundle:'com.servicenow.agent',  platform:'Android', type:'Purchased',ver:'9.0.1', installed:34,pending:5,assigned:2,unassigned:3 },
+    { name:'HR Self Service',    bundle:'com.corp.hrss',         platform:'iOS',     type:'Internal', ver:'1.0.9', installed:50,pending:4,assigned:3,unassigned:2 },
+  ];
+  return specs.map((s, ai) => ({
+    id: 'APP' + String(ai+1).padStart(3,'0'),
+    name: s.name, bundle: s.bundle, platform: s.platform, type: s.type,
+    version: s.ver, icon: iconFor(s.platform),
+    devices: {
+      installed:  Array.from({length:s.installed},(_,i)=>makeDemoDevice('installed', i)),
+      pending:    Array.from({length:s.pending},  (_,i)=>makeDemoDevice('pending',   i)),
+      assigned:   Array.from({length:s.assigned}, (_,i)=>makeDemoDevice('assigned',  i)),
+      unassigned: Array.from({length:s.unassigned},(_,i)=>makeDemoDevice('unassigned',i)),
+    },
+    versions: [
+      { ver: s.ver, count: s.installed + s.pending, latest: true },
+      { ver: s.ver.replace(/\d+$/,v=>parseInt(v)-1), count: Math.floor(s.installed*.3), latest: false },
+    ],
+    assignments: [
+      { name:'All Employees', type:'Required', scope:'Smart Group' },
+      { name:'IT Department', type:'Required', scope:'Org Group' },
+    ],
+    totalDevices: s.installed + s.pending + s.assigned + s.unassigned
+  }));
+}
+
+// ─── MAIN LOAD ───────────────────────────────────────────────────────────────
+async function loadAllData() {
+  showLoading('Loading…', 'Fetching application data');
+  
+  try {
+    if (isPyWebView) {
+      // Use Python backend
+      const result = await pyCall('fetch_data');
+      
+      if (result && result.success && result.data) {
+        allApps = processRows(result.data);
+        toast(`Loaded ${allApps.length} apps (${result.count} device records)`, 'ok');
+        document.getElementById('hdrStatus').textContent = `● Connected · ${allApps.length} apps`;
+        document.getElementById('hdrStatus').className = 'header-status connected';
+      } else if (result && result.demo) {
+        allApps = generateDemoData();
+        toast('Demo mode — configure API credentials to load live data');
+        document.getElementById('hdrStatus').textContent = '● Demo mode · 10 sample apps';
+      } else {
+        allApps = generateDemoData();
+        toast(`Error: ${result?.error || 'Unknown error'} — showing demo data`, 'err', 4000);
+      }
+    } else {
+      // Browser mode - use demo data
+      allApps = generateDemoData();
+      toast('Running in browser — demo mode enabled');
+      document.getElementById('hdrStatus').textContent = '● Demo mode · 10 sample apps';
+    }
+  } catch(e) {
+    allApps = generateDemoData();
+    toast(`Error: ${e.message} — showing demo data`, 'err', 4000);
+    console.error(e);
+  }
+  
+  hideLoading();
+  filterApps();
+}
+
+// ─── SIDEBAR RENDER ──────────────────────────────────────────────────────────
+function setFilter(f, el) {
+  filterKey = f;
+  document.querySelectorAll('.pill-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  filterApps();
+}
+
+function filterApps() {
+  const q = document.getElementById('appSearch').value.toLowerCase();
+  const list = allApps.filter(a => {
+    const matchQ = !q || a.name.toLowerCase().includes(q)
+      || (a.bundle||'').toLowerCase().includes(q)
+      || a.version.toLowerCase().includes(q)
+      || a.id.toLowerCase().includes(q);
+    const matchF = filterKey === 'all'
+      || a.type === filterKey || a.type.toLowerCase() === filterKey.toLowerCase()
+      || a.platform === filterKey;
+    return matchQ && matchF;
+  });
+  document.getElementById('appCountBadge').textContent = list.length;
+  const el = document.getElementById('appList');
+  if (!list.length) { el.innerHTML = `<div class="sidebar-empty">No apps match your search.</div>`; return; }
+  el.innerHTML = list.map(a => `
+    <div class="app-item${selApp?.id===a.id&&selApp?.platform===a.platform?' sel':''}"
+         onclick="selectApp('${a.id}','${a.platform}')">
+      <div class="app-avatar" style="background:${bgFor(a.platform)}">${a.icon}</div>
+      <div class="app-meta">
+        <div class="app-meta-name">${a.name}</div>
+        <div class="app-meta-bundle">${a.bundle}</div>
+        <div class="app-meta-row">
+          <span class="tag tag-${a.platform.toLowerCase().replace(/ /g,'')}">${a.platform}</span>
+          <span class="tag tag-${a.type.toLowerCase()}">${a.type}</span>
+          <span class="tag tag-ver">${a.version}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── SELECT APP ──────────────────────────────────────────────────────────────
+function selectApp(id, platform) {
+  selApp = allApps.find(a => a.id === id && a.platform === platform);
+  if (!selApp) return;
+  devFilter = 'all'; devSearch = ''; devPage = 1;
+  filterApps();
+  renderDetail();
+}
+
+// ─── RENDER DETAIL ───────────────────────────────────────────────────────────
+function renderDetail() {
+  const a = selApp;
+  const d = a.devices;
+  const ti = d.installed.length, tp = d.pending.length, ta = d.assigned.length, tu = d.unassigned.length;
+  const total = ti + tp + ta + tu;
+  const allDevs = [
+    ...d.installed.map(x=>({...x,status:'installed'})),
+    ...d.pending.map(x=>({...x,status:'pending'})),
+    ...d.assigned.map(x=>({...x,status:'assigned'})),
+    ...d.unassigned.map(x=>({...x,status:'unassigned'}))
+  ];
+  const d30 = allDevs.filter(x=>x.daysSeen<=30).length;
+  const d60 = allDevs.filter(x=>x.daysSeen>30&&x.daysSeen<=60).length;
+  const d90 = allDevs.filter(x=>x.daysSeen>60).length;
+  const maxVer = Math.max(...(a.versions||[]).map(v=>v.count), 1);
+
+  document.getElementById('detail').innerHTML = `
+    <!-- APP HEADER -->
+    <div class="app-header">
+      <div class="app-header-left">
+        <div class="app-header-icon" style="background:${bgFor(a.platform)}">${a.icon}</div>
+        <div>
+          <div class="app-title">${a.name}</div>
+          <div class="app-meta-line">
+            <span>🆔 ${a.id}</span>
+            <span>📦 ${a.bundle}</span>
+            <span>🔖 v${a.version}</span>
+          </div>
+          <div class="app-badges">
+            <span class="tag tag-${a.platform.toLowerCase().replace(/ /g,'')}">${a.platform}</span>
+            <span class="tag tag-${a.type.toLowerCase()}">${a.type}</span>
+          </div>
+        </div>
+      </div>
+      <div class="app-header-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportDevicesCSV()">⬇ Export Devices</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- SUMMARY STATS ROW 1 -->
+      <div>
+        <div class="stats-row">
+          <div class="stat-card sc-total">
+            <div class="stat-label">Total Devices</div>
+            <div class="stat-val">${total}</div>
+            <div class="stat-desc">across all statuses</div>
+          </div>
+          <div class="stat-card sc-installed">
+            <div class="stat-label">Installed</div>
+            <div class="stat-val">${ti}</div>
+            <div class="stat-desc">${total?Math.round(ti/total*100):0}% of total</div>
+          </div>
+          <div class="stat-card sc-pending">
+            <div class="stat-label">Pending Install</div>
+            <div class="stat-val">${tp}</div>
+            <div class="stat-desc">awaiting deployment</div>
+          </div>
+          <div class="stat-card sc-assigned">
+            <div class="stat-label">Assigned / Not Installed</div>
+            <div class="stat-val">${ta}</div>
+            <div class="stat-desc">policy set, not installed</div>
+          </div>
+        </div>
+        <div class="stats-row" style="margin-top:10px">
+          <div class="stat-card sc-unassigned">
+            <div class="stat-label">Installed / Not Assigned</div>
+            <div class="stat-val">${tu}</div>
+            <div class="stat-desc">needs remediation</div>
+          </div>
+          <div class="stat-card sc-d30">
+            <div class="stat-label">Last Seen ≤ 30 days</div>
+            <div class="stat-val">${d30}</div>
+            <div class="stat-desc">active / healthy</div>
+          </div>
+          <div class="stat-card sc-d60">
+            <div class="stat-label">Last Seen 31–60 days</div>
+            <div class="stat-val">${d60}</div>
+            <div class="stat-desc">moderate risk</div>
+          </div>
+          <div class="stat-card sc-d90">
+            <div class="stat-label">Last Seen > 60 days</div>
+            <div class="stat-val">${d90}</div>
+            <div class="stat-desc">stale / at risk</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASSIGNMENTS + VERSIONS side by side -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- ASSIGNMENTS -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-title-dot" style="background:var(--blue)"></span>
+              Assignment Groups (${(a.assignments||[]).length})
+            </div>
+          </div>
+          <div class="card-body">
+            ${(a.assignments||[]).length
+              ? `<div class="assign-grid">${(a.assignments).map(as=>`
+                  <div class="assign-card">
+                    <div class="assign-icon">${as.scope==='Org Group'?'🏢':'👥'}</div>
+                    <div>
+                      <div class="assign-name">${as.name}</div>
+                      <div class="assign-scope">${as.scope}</div>
+                    </div>
+                    <div class="assign-right">
+                      <span class="${as.type==='Required'?'badge-required':'badge-optional'}">${as.type}</span>
+                    </div>
+                  </div>`).join('')}</div>`
+              : `<div style="color:var(--text3);font-size:12px;padding:8px 0">No assignment data available. Configure UEM API for live data.</div>`
+            }
+          </div>
+        </div>
+
+        <!-- VERSIONS -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-title-dot" style="background:var(--green)"></span>
+              Version Distribution
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="ver-table">
+              <thead><tr><th>Version</th><th>Status</th><th style="width:45%">Devices</th><th style="text-align:right">Count</th></tr></thead>
+              <tbody>
+                ${(a.versions||[]).map(v=>`
+                  <tr>
+                    <td><span class="ver-chip ${v.latest?'ver-latest':'ver-old'}">${v.ver}</span></td>
+                    <td style="font-size:11px;color:${v.latest?'var(--green)':'var(--text3)'}">${v.latest?'Latest':'Older'}</td>
+                    <td>
+                      <div class="bar-row">
+                        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(v.count/maxVer*100)}%;background:${v.latest?'var(--green)':'var(--border2)'}"></div></div>
+                        <span class="bar-n">${v.count}</span>
+                      </div>
+                    </td>
+                    <td style="text-align:right;font-family:var(--mono);font-size:11px">${v.count}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEVICE TABLE -->
+      <div class="card" id="deviceCard">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-dot" style="background:var(--purple)"></span>
+            Device Details
+          </div>
+        </div>
+        <div class="device-controls">
+          <div class="dev-search">
+            <span class="dev-search-icon">🔍</span>
+            <input type="text" id="devSearchInput" placeholder="Search device ID, serial, user, email, org…" oninput="onDevSearch()" value="${devSearch}">
+          </div>
+          <div class="filter-chips">
+            <div class="fchip fc-all${devFilter==='all'?' on':''}" onclick="setDevFilter('all',this)">All (${total})</div>
+            <div class="fchip fc-installed${devFilter==='installed'?' on':''}" onclick="setDevFilter('installed',this)">✅ Installed (${ti})</div>
+            <div class="fchip fc-pending${devFilter==='pending'?' on':''}" onclick="setDevFilter('pending',this)">⏳ Pending (${tp})</div>
+            <div class="fchip fc-assigned${devFilter==='assigned'?' on':''}" onclick="setDevFilter('assigned',this)">📋 Assigned (${ta})</div>
+            <div class="fchip fc-unassigned${devFilter==='unassigned'?' on':''}" onclick="setDevFilter('unassigned',this)">⚠ Not Assigned (${tu})</div>
+          </div>
+        </div>
+        <div id="devTableArea"></div>
+      </div>
+    </div>
+  `;
+  renderDevTable();
+}
+
+function setDevFilter(f, el) {
+  devFilter = f; devPage = 1;
+  document.querySelectorAll('.fchip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  renderDevTable();
+}
+
+function onDevSearch() {
+  devSearch = document.getElementById('devSearchInput').value.toLowerCase();
+  devPage = 1; renderDevTable();
+}
+
+function seenClass(d) { return d<=30?'seen-30':d<=60?'seen-60':d<=90?'seen-90':'seen-stale'; }
+function seenLabel(d) { return d<=30?'≤30d':d<=60?'31-60d':d<=90?'61-90d':'>90d'; }
+
+function renderDevTable() {
+  if (!selApp) return;
+  const d = selApp.devices;
+  let pool = [];
+  if (devFilter==='all'||devFilter==='installed') pool.push(...d.installed.map(x=>({...x,status:'installed'})));
+  if (devFilter==='all'||devFilter==='pending')   pool.push(...d.pending.map(x=>({...x,status:'pending'})));
+  if (devFilter==='all'||devFilter==='assigned')  pool.push(...d.assigned.map(x=>({...x,status:'assigned'})));
+  if (devFilter==='all'||devFilter==='unassigned')pool.push(...d.unassigned.map(x=>({...x,status:'unassigned'})));
+
+  if (devSearch) pool = pool.filter(x =>
+    x.deviceId.toLowerCase().includes(devSearch) ||
+    x.deviceName.toLowerCase().includes(devSearch) ||
+    x.serial.toLowerCase().includes(devSearch) ||
+    x.userName.toLowerCase().includes(devSearch) ||
+    x.email.toLowerCase().includes(devSearch) ||
+    x.org.toLowerCase().includes(devSearch)
+  );
+
+  const total = pool.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  devPage = Math.min(devPage, pages);
+  const slice = pool.slice((devPage-1)*PAGE, devPage*PAGE);
+
+  const sl = { installed:'ist-installed', pending:'ist-pending', assigned:'ist-assigned', unassigned:'ist-unassigned' };
+  const stl = { installed:'Installed', pending:'Pending Install', assigned:'Assigned / Not Installed', unassigned:'Installed / Not Assigned' };
+
+  const area = document.getElementById('devTableArea');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="table-wrap">
+      <table class="dtable">
+        <thead>
+          <tr>
+            <th>Device ID</th>
+            <th>Device Name</th>
+            <th>Serial #</th>
+            <th>Organization</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Install Status</th>
+            <th>Version</th>
+            <th>Last Seen</th>
+            <th>Activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${slice.length ? slice.map(x=>`
+            <tr>
+              <td><span class="td-id">${x.deviceId}</span></td>
+              <td>${x.deviceName}</td>
+              <td><span class="td-serial">${x.serial}</span></td>
+              <td>${x.org}</td>
+              <td>${x.userName}</td>
+              <td class="td-email">${x.email}</td>
+              <td><span class="ist-badge ${sl[x.status]}">${stl[x.status]}</span></td>
+              <td style="font-family:var(--mono);font-size:10px">${x.version||'—'}</td>
+              <td style="font-family:var(--mono);font-size:11px">${x.lastSeen}</td>
+              <td><span class="seen-chip ${seenClass(x.daysSeen)}">${seenLabel(x.daysSeen)}</span></td>
+            </tr>`).join('')
+          : `<tr><td colspan="10" class="no-data">No devices match your criteria.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span>Showing ${slice.length ? (devPage-1)*PAGE+1:0}–${Math.min(devPage*PAGE, total)} of <b>${total}</b> devices</span>
+      <div class="page-btns">
+        <button class="pbtn" ${devPage<=1?'disabled':''} onclick="goPage(${devPage-1})">← Prev</button>
+        ${Array.from({length:Math.min(pages,8)},(_,i)=>`<button class="pbtn${i+1===devPage?' cur':''}" onclick="goPage(${i+1})">${i+1}</button>`).join('')}
+        ${pages>8?`<span style="padding:0 4px;color:var(--text3)">…${pages}</span>`:''}
+        <button class="pbtn" ${devPage>=pages?'disabled':''} onclick="goPage(${devPage+1})">Next →</button>
+      </div>
+    </div>
+  `;
+}
+
+function goPage(p) {
+  devPage = p; renderDevTable();
+  document.getElementById('deviceCard')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+function toCSV(headers, rows) {
+  const esc = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  return [headers.map(esc).join(','), ...rows.map(r=>r.map(esc).join(','))].join('\n');
+}
+function downloadCSV(content, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:'text/csv'}));
+  a.download = filename; a.click();
+}
+
+function exportAppsCSV() {
+  if (!allApps.length) { toast('No apps loaded', 'err'); return; }
+  const headers = ['App ID','App Name','Bundle ID','Platform','Type','Version','Total Devices','Installed','Pending','Assigned Not Installed','Installed Not Assigned'];
+  const rows = allApps.map(a=>[
+    a.id, a.name, a.bundle, a.platform, a.type, a.version, a.totalDevices,
+    a.devices.installed.length, a.devices.pending.length,
+    a.devices.assigned.length, a.devices.unassigned.length
+  ]);
+  downloadCSV(toCSV(headers, rows), `ws1_apps_${ts()}.csv`);
+  toast('Apps exported to CSV', 'ok');
+}
+
+function exportDevicesCSV() {
+  if (!selApp) return;
+  const d = selApp.devices;
+  const all = [
+    ...d.installed.map(x=>({...x,status:'Installed'})),
+    ...d.pending.map(x=>({...x,status:'Pending Install'})),
+    ...d.assigned.map(x=>({...x,status:'Assigned / Not Installed'})),
+    ...d.unassigned.map(x=>({...x,status:'Installed / Not Assigned'}))
+  ];
+  const headers = ['App Name','Device ID','Device Name','Serial #','Organization','Username','Email','Install Status','Version','Last Seen','Days Since Seen','Activity Bucket'];
+  const rows = all.map(x=>[
+    selApp.name, x.deviceId, x.deviceName, x.serial, x.org,
+    x.userName, x.email, x.status, x.version||selApp.version,
+    x.lastSeen, x.daysSeen, seenLabel(x.daysSeen)
+  ]);
+  downloadCSV(toCSV(headers, rows), `ws1_devices_${selApp.name.replace(/\s+/g,'_')}_${ts()}.csv`);
+  toast('Device list exported to CSV', 'ok');
+}
+
+function ts() { return new Date().toISOString().replace(/[:.]/g,'-').split('T').join('_').substr(0,19); }
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+async function init() {
+  // Load saved config from Python backend if available
+  if (isPyWebView) {
+    try {
+      const savedCfg = await pyCall('get_config');
+      if (savedCfg) {
+        cfg = { ...cfg, ...savedCfg };
+        document.getElementById('cfg_token_url').value = cfg.tokenUrl || '';
+        document.getElementById('cfg_client_id').value = cfg.clientId || '';
+        document.getElementById('cfg_client_secret').value = cfg.clientSecret || '';
+        document.getElementById('cfg_intel_base').value = cfg.intelBase || '';
+        document.getElementById('cfg_uem_host').value = cfg.uemHost || '';
+        document.getElementById('cfg_aw_key').value = cfg.awKey || '';
+        document.getElementById('cfg_og').value = cfg.og || '';
+        document.getElementById('cfg_user').value = cfg.user || '';
+        document.getElementById('cfg_pass').value = cfg.pass || '';
+      }
+    } catch(e) {
+      console.log('Could not load saved config:', e);
+    }
+  }
+  
+  // Pre-fill config modal from default values
+  document.getElementById('cfg_token_url').value = cfg.tokenUrl;
+  document.getElementById('cfg_intel_base').value = cfg.intelBase;
+  
+  loadAllData();
+}
+
+// Wait for pywebview to be ready, then initialize
+if (isPyWebView) {
+  window.addEventListener('pywebviewready', init);
+} else {
+  window.onload = init;
+}
+</script>
+</body>
+</html>
