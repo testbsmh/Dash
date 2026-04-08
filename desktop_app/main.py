@@ -101,11 +101,12 @@ class PythonAPI:
             logger.error(f"save_config error: {e}", exc_info=True)
             return {'success': False, 'error': str(e)}
     
-    def fetch_data(self, app_type_filter=''):
+    def fetch_data(self, app_type_filter='', platform_filter=''):
         """Fetch all application data from WorkspaceONE APIs."""
         logger.info("="*40)
         logger.info("fetch_data() called - Starting data fetch")
         logger.info(f"  App type filter: {app_type_filter or 'All'}")
+        logger.info(f"  Platform filter: {platform_filter or 'All'}")
         logger.info("="*40)
         
         try:
@@ -123,7 +124,7 @@ class PythonAPI:
                 return {
                     'success': False,
                     'demo': True,
-                    'message': 'No API credentials configured. Using demo mode.'
+                    'message': 'No API credentials configured. Click Configure to add credentials, then Sync Data.'
                 }
             
             # Create API client
@@ -131,13 +132,14 @@ class PythonAPI:
             self._ws1_api = WS1API(self._config)
             
             # Get fetch settings from config
-            max_records = int(self._config.get('maxRecords', 100000) or 0)
-            page_size = int(self._config.get('pageSize', 10000) or 10000)
+            max_records = int(self._config.get('maxRecords', 10000) or 0)
+            page_size = int(self._config.get('pageSize', 1000) or 1000)
             
             # Fetch data with limits
-            logger.info(f"Calling fetch_intelligence_data(filter={app_type_filter}, max={max_records}, pageSize={page_size})...")
+            logger.info(f"Calling fetch_intelligence_data(appType={app_type_filter}, platform={platform_filter}, max={max_records}, pageSize={page_size})...")
             rows = self._ws1_api.fetch_intelligence_data(
                 app_type_filter=app_type_filter,
+                platform_filter=platform_filter,
                 max_records=max_records,
                 page_size=page_size
             )

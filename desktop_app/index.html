@@ -520,13 +520,19 @@ table.dtable tr:hover td { background: var(--blue-lt); }
     </div>
   </a>
   <div class="header-divider"></div>
-  <div class="header-status" id="hdrStatus">● Not connected · Demo mode</div>
+  <div class="header-status" id="hdrStatus">● Not connected</div>
   <div class="header-actions">
-    <select id="syncFilter" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;">
+    <select id="syncAppType" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;">
       <option value="">All App Types</option>
-      <option value="Internal">Internal Only</option>
-      <option value="Purchased">Purchased Only</option>
-      <option value="Public">Public Only</option>
+      <option value="Internal">Internal</option>
+      <option value="Purchased">Purchased</option>
+      <option value="Public">Public</option>
+    </select>
+    <select id="syncPlatform" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);background:white;color:var(--text2);cursor:pointer;">
+      <option value="">All Platforms</option>
+      <option value="Apple">iOS/macOS</option>
+      <option value="Android">Android</option>
+      <option value="WinRT">Windows</option>
     </select>
     <button class="btn btn-outline btn-sm" onclick="openCfg()">⚙ Configure</button>
     <button class="btn btn-outline btn-sm" onclick="exportAppsCSV()">⬇ Export</button>
@@ -681,10 +687,11 @@ function hideLoading() { document.getElementById('loadingOverlay').classList.rem
 
 // ─── DATA PROCESSING ─────────────────────────────────────────────────────────
 function processRows(rows) {
+  log(`Processing ${rows.length} rows...`);
   const appMap = new Map();
 
   for (const row of rows) {
-    const appId     = row['airwatch.application.app_id'] || row['airwatch.application.app_package_id'] || 'unknown';
+    const appId     = row['airwatch.application.app_id'] || 'unknown';
     const appName   = row['airwatch.application.app_name'] || '—';
     const packageId = row['airwatch.application.app_package_id'] || '—';
     const version   = row['airwatch.application.app_version'] || '—';
@@ -721,23 +728,38 @@ function processRows(rows) {
       version
     };
 
-    const key = appId + '|' + platform;
+    // Group by packageId + platform (not appId, since same package can have multiple versions)
+    const key = packageId + '|' + platform;
     if (!appMap.has(key)) {
       appMap.set(key, {
-        id: appId, name: appName, bundle: packageId,
+        id: appId, 
+        name: appName, 
+        bundle: packageId,
         platform: normalizePlatform(platform),
-        type: appType, version: assignedV !== '—' ? assignedV : version,
+        rawPlatform: platform,
+        type: appType, 
+        latestVersion: version,
         icon: iconFor(platform),
         devices: { installed:[], pending:[], assigned:[], unassigned:[] },
-        versions: new Map(),
+        versionMap: new Map(),  // version -> { devices, count }
+        versions: [],
         assignments: []
       });
     }
     const app = appMap.get(key);
 
-    if (!app.versions.has(version)) app.versions.set(version, 0);
-    app.versions.set(version, app.versions.get(version) + 1);
+    // Track devices by version
+    if (!app.versionMap.has(version)) {
+      app.versionMap.set(version, { 
+        devices: { installed:[], pending:[], assigned:[], unassigned:[] },
+        count: 0 
+      });
+    }
+    const verData = app.versionMap.get(version);
+    verData.count++;
+    verData.devices[normStatus === 'installed' ? 'installed' : normStatus === 'pending' ? 'pending' : normStatus === 'assigned' ? 'assigned' : 'unassigned'].push(device);
 
+    // Also add to main device list
     const bucket = normStatus === 'installed' ? 'installed'
                  : normStatus === 'pending'   ? 'pending'
                  : normStatus === 'assigned'  ? 'assigned'
@@ -747,12 +769,30 @@ function processRows(rows) {
 
   const apps = [];
   for (const [, app] of appMap) {
-    const verEntries = [...app.versions.entries()].sort((a,b)=>b[1]-a[1]);
-    app.versions = verEntries.map(([v,c],i)=>({ ver:v, count:c, latest:i===0 }));
+    // Convert version map to sorted array
+    const verEntries = [...app.versionMap.entries()].sort((a,b)=>b[1].count - a[1].count);
+    app.versions = verEntries.map(([v, data], i) => ({ 
+      ver: v, 
+      count: data.count, 
+      latest: i === 0,
+      devices: data.devices
+    }));
+    
+    // Set latest version
+    if (app.versions.length > 0) {
+      app.latestVersion = app.versions[0].ver;
+    }
+    
     app.totalDevices = app.devices.installed.length + app.devices.pending.length
                      + app.devices.assigned.length + app.devices.unassigned.length;
+    
+    // Clean up the versionMap (not needed in final output)
+    delete app.versionMap;
+    
     apps.push(app);
   }
+  
+  log(`Processed into ${apps.length} apps`);
   return apps.sort((a,b) => a.name.localeCompare(b.name));
 }
 
@@ -840,18 +880,22 @@ async function loadAllData() {
   log('loadAllData() called - Starting sync...');
   log('='.repeat(50));
   
-  // Get selected app type filter
-  const appTypeFilter = document.getElementById('syncFilter')?.value || '';
-  log(`App type filter: ${appTypeFilter || 'All'}`);
+  // Get selected filters
+  const appTypeFilter = document.getElementById('syncAppType')?.value || '';
+  const platformFilter = document.getElementById('syncPlatform')?.value || '';
   
-  showLoading('Syncing Data…', appTypeFilter ? `Filtering: ${appTypeFilter}` : 'All app types');
+  log(`App type filter: ${appTypeFilter || 'All'}`);
+  log(`Platform filter: ${platformFilter || 'All'}`);
+  
+  const filterDesc = [appTypeFilter, platformFilter].filter(Boolean).join(', ') || 'All';
+  showLoading('Syncing Data…', `Filter: ${filterDesc}`);
   
   try {
     if (pywebviewReady) {
       log('Calling Python fetch_data()...');
-      showLoading('Fetching Data…', 'Calling Python API');
+      showLoading('Fetching Data…', 'Calling WorkspaceONE API');
       
-      const result = await pyCall('fetch_data', appTypeFilter);
+      const result = await pyCall('fetch_data', appTypeFilter, platformFilter);
       
       log(`fetch_data result: success=${result?.success}, demo=${result?.demo}, count=${result?.count}, error=${result?.error}`);
       
@@ -912,7 +956,7 @@ function filterApps() {
   const list = allApps.filter(a => {
     const matchQ = !q || a.name.toLowerCase().includes(q)
       || (a.bundle||'').toLowerCase().includes(q)
-      || a.version.toLowerCase().includes(q)
+      || (a.latestVersion||'').toLowerCase().includes(q)
       || a.id.toLowerCase().includes(q);
     const matchF = filterKey === 'all'
       || a.type === filterKey || a.type.toLowerCase() === filterKey.toLowerCase()
@@ -921,10 +965,13 @@ function filterApps() {
   });
   document.getElementById('appCountBadge').textContent = list.length;
   const el = document.getElementById('appList');
-  if (!list.length) { el.innerHTML = `<div class="sidebar-empty">No apps match your search.</div>`; return; }
+  if (!list.length) { 
+    el.innerHTML = `<div class="sidebar-empty">No apps match your search.<br>Try adjusting filters or click Sync Data.</div>`; 
+    return; 
+  }
   el.innerHTML = list.map(a => `
-    <div class="app-item${selApp?.id===a.id&&selApp?.platform===a.platform?' sel':''}"
-         onclick="selectApp('${a.id}','${a.platform}')">
+    <div class="app-item${selApp?.bundle===a.bundle&&selApp?.platform===a.platform?' sel':''}"
+         onclick="selectApp('${encodeURIComponent(a.bundle)}','${a.platform}')" data-testid="app-item-${a.bundle}">
       <div class="app-avatar" style="background:${bgFor(a.platform)}">${a.icon}</div>
       <div class="app-meta">
         <div class="app-meta-name">${a.name}</div>
@@ -932,17 +979,34 @@ function filterApps() {
         <div class="app-meta-row">
           <span class="tag tag-${a.platform.toLowerCase().replace(/ /g,'')}">${a.platform}</span>
           <span class="tag tag-${a.type.toLowerCase()}">${a.type}</span>
-          <span class="tag tag-ver">${a.version}</span>
+          <span class="tag tag-ver">v${a.latestVersion} ${a.versions.length > 1 ? `+${a.versions.length-1}` : ''}</span>
         </div>
       </div>
     </div>`).join('');
 }
 
 // ─── SELECT APP ──────────────────────────────────────────────────────────────
-function selectApp(id, platform) {
-  selApp = allApps.find(a => a.id === id && a.platform === platform);
-  if (!selApp) return;
-  devFilter = 'all'; devSearch = ''; devPage = 1;
+let selectedVersion = null;  // Track selected version for filtering
+
+function selectApp(bundleEncoded, platform) {
+  const bundle = decodeURIComponent(bundleEncoded);
+  log(`selectApp called: bundle=${bundle}, platform=${platform}`);
+  
+  selApp = allApps.find(a => a.bundle === bundle && a.platform === platform);
+  
+  if (!selApp) {
+    log(`App not found for bundle=${bundle}, platform=${platform}`, 'error');
+    toast('Application not found', 'err');
+    return;
+  }
+  
+  log(`Selected app: ${selApp.name} (${selApp.totalDevices} devices, ${selApp.versions.length} versions)`);
+  
+  devFilter = 'all'; 
+  devSearch = ''; 
+  devPage = 1;
+  selectedVersion = null;  // Reset version filter
+  
   filterApps();
   renderDetail();
 }
@@ -974,7 +1038,7 @@ function renderDetail() {
           <div class="app-meta-line">
             <span>🆔 ${a.id}</span>
             <span>📦 ${a.bundle}</span>
-            <span>🔖 v${a.version}</span>
+            <span>🔖 v${a.latestVersion} ${a.versions.length > 1 ? `(${a.versions.length} versions)` : ''}</span>
           </div>
           <div class="app-badges">
             <span class="tag tag-${a.platform.toLowerCase().replace(/ /g,'')}">${a.platform}</span>
@@ -1069,15 +1133,16 @@ function renderDetail() {
           <div class="card-header">
             <div class="card-title">
               <span class="card-title-dot" style="background:var(--green)"></span>
-              Version Distribution
+              Version Distribution (${(a.versions||[]).length} versions)
             </div>
+            ${selectedVersion ? `<button class="btn btn-sm btn-outline" onclick="clearVersionFilter()">Clear Filter</button>` : ''}
           </div>
           <div class="card-body" style="padding:0">
             <table class="ver-table">
-              <thead><tr><th>Version</th><th>Status</th><th style="width:45%">Devices</th><th style="text-align:right">Count</th></tr></thead>
+              <thead><tr><th>Version</th><th>Status</th><th style="width:40%">Devices</th><th style="text-align:right">Count</th><th>Action</th></tr></thead>
               <tbody>
                 ${(a.versions||[]).map(v=>`
-                  <tr>
+                  <tr class="${selectedVersion === v.ver ? 'ver-selected' : ''}" style="${selectedVersion === v.ver ? 'background:var(--blue-lt)' : ''}">
                     <td><span class="ver-chip ${v.latest?'ver-latest':'ver-old'}">${v.ver}</span></td>
                     <td style="font-size:11px;color:${v.latest?'var(--green)':'var(--text3)'}">${v.latest?'Latest':'Older'}</td>
                     <td>
@@ -1087,6 +1152,7 @@ function renderDetail() {
                       </div>
                     </td>
                     <td style="text-align:right;font-family:var(--mono);font-size:11px">${v.count}</td>
+                    <td><button class="btn btn-sm ${selectedVersion === v.ver ? 'btn-primary' : 'btn-outline'}" onclick="filterByVersion('${v.ver}')">${selectedVersion === v.ver ? '✓ Selected' : 'View'}</button></td>
                   </tr>`).join('')}
               </tbody>
             </table>
@@ -1099,8 +1165,9 @@ function renderDetail() {
         <div class="card-header">
           <div class="card-title">
             <span class="card-title-dot" style="background:var(--purple)"></span>
-            Device Details
+            Device Details ${selectedVersion ? `<span style="color:var(--blue);font-weight:400">(v${selectedVersion})</span>` : ''}
           </div>
+          ${selectedVersion ? `<button class="btn btn-sm btn-outline" onclick="clearVersionFilter()">Show All Versions</button>` : ''}
         </div>
         <div class="device-controls">
           <div class="dev-search">
@@ -1129,6 +1196,20 @@ function setDevFilter(f, el) {
   renderDevTable();
 }
 
+function filterByVersion(ver) {
+  log(`Filtering devices by version: ${ver}`);
+  selectedVersion = ver;
+  devPage = 1;
+  renderDetail();  // Re-render to update version table highlight
+}
+
+function clearVersionFilter() {
+  log('Clearing version filter');
+  selectedVersion = null;
+  devPage = 1;
+  renderDetail();
+}
+
 function onDevSearch() {
   devSearch = document.getElementById('devSearchInput').value.toLowerCase();
   devPage = 1; renderDevTable();
@@ -1139,12 +1220,27 @@ function seenLabel(d) { return d<=30?'≤30d':d<=60?'31-60d':d<=90?'61-90d':'>90
 
 function renderDevTable() {
   if (!selApp) return;
-  const d = selApp.devices;
+  
   let pool = [];
-  if (devFilter==='all'||devFilter==='installed') pool.push(...d.installed.map(x=>({...x,status:'installed'})));
-  if (devFilter==='all'||devFilter==='pending')   pool.push(...d.pending.map(x=>({...x,status:'pending'})));
-  if (devFilter==='all'||devFilter==='assigned')  pool.push(...d.assigned.map(x=>({...x,status:'assigned'})));
-  if (devFilter==='all'||devFilter==='unassigned')pool.push(...d.unassigned.map(x=>({...x,status:'unassigned'})));
+  
+  // If filtering by version, use that version's devices
+  if (selectedVersion) {
+    const verData = selApp.versions.find(v => v.ver === selectedVersion);
+    if (verData && verData.devices) {
+      const d = verData.devices;
+      if (devFilter==='all'||devFilter==='installed') pool.push(...d.installed.map(x=>({...x,status:'installed'})));
+      if (devFilter==='all'||devFilter==='pending')   pool.push(...d.pending.map(x=>({...x,status:'pending'})));
+      if (devFilter==='all'||devFilter==='assigned')  pool.push(...d.assigned.map(x=>({...x,status:'assigned'})));
+      if (devFilter==='all'||devFilter==='unassigned')pool.push(...d.unassigned.map(x=>({...x,status:'unassigned'})));
+    }
+  } else {
+    // Use all devices
+    const d = selApp.devices;
+    if (devFilter==='all'||devFilter==='installed') pool.push(...d.installed.map(x=>({...x,status:'installed'})));
+    if (devFilter==='all'||devFilter==='pending')   pool.push(...d.pending.map(x=>({...x,status:'pending'})));
+    if (devFilter==='all'||devFilter==='assigned')  pool.push(...d.assigned.map(x=>({...x,status:'assigned'})));
+    if (devFilter==='all'||devFilter==='unassigned')pool.push(...d.unassigned.map(x=>({...x,status:'unassigned'})));
+  }
 
   if (devSearch) pool = pool.filter(x =>
     x.deviceId.toLowerCase().includes(devSearch) ||
@@ -1312,8 +1408,15 @@ async function init() {
     document.getElementById('cfg_page_size').value = cfg.pageSize || 1000;
   }
   
-  log('Init complete, loading data...');
-  loadAllData();
+  log('Init complete - ready for user to click Sync Data');
+  
+  // Show initial message instead of auto-loading
+  document.getElementById('hdrStatus').textContent = '● Ready - Click Sync Data';
+  document.getElementById('appList').innerHTML = `
+    <div class="sidebar-empty">
+      <p>Configure your API credentials, select filters, then click <b>Sync Data</b> to load applications.</p>
+    </div>
+  `;
 }
 
 // ─── PYWEBVIEW READY HANDLER ─────────────────────────────────────────────────

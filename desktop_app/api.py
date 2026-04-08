@@ -89,20 +89,19 @@ class WS1API:
             logger.error(f"Connection error: {e}")
             raise Exception(f'Cannot connect to auth server: {e}')
     
-    def fetch_intelligence_data(self, app_type_filter='', max_records=0, page_size=1000):
+    def fetch_intelligence_data(self, app_type_filter='', platform_filter='', max_records=0, page_size=1000):
         """
         Fetch all application data from Intelligence GraphQL API.
         
         Args:
-            app_type_filter: Filter by app type (optional)
+            app_type_filter: Filter by app type (Internal, Purchased, Public)
+            platform_filter: Filter by platform (Apple, Android, WinRT)
             max_records: Maximum records to fetch (0 = unlimited, but API has limits)
             page_size: Records per API call (MAX 1000 per API spec)
         
         Note: WorkspaceONE Intelligence API has Elasticsearch limits:
         - Max page_size: 1000
         - Max offset: ~10,000 (offset + page_size must be <= 10,000)
-        
-        For datasets > 10,000 records, use filters to segment data.
         """
         logger.info("="*50)
         logger.info("Fetching Intelligence data...")
@@ -115,10 +114,20 @@ class WS1API:
         
         logger.info(f"  Page size: {page_size}")
         logger.info(f"  Max records: {max_records if max_records > 0 else 'API limit (~10,000)'}")
+        logger.info(f"  App type filter: {app_type_filter or 'All'}")
+        logger.info(f"  Platform filter: {platform_filter or 'All'}")
         
         token = self.get_token()
         
-        filter_str = f"airwatch.application.app_type IN ('{app_type_filter}')" if app_type_filter else ''
+        # Build filter string
+        filters = []
+        if app_type_filter:
+            filters.append(f"airwatch.application.app_type IN ('{app_type_filter}')")
+        if platform_filter:
+            filters.append(f"airwatch.application._device_platform IN ('{platform_filter}')")
+        
+        filter_str = ' AND '.join(filters) if filters else ''
+        logger.info(f"  Filter query: {filter_str or 'None'}")
         
         all_results = []
         offset = 0
