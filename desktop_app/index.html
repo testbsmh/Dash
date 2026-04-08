@@ -550,18 +550,22 @@ table.dtable tr:hover td { background: var(--blue-lt); }
       </div>
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input type="text" id="appSearch" placeholder="Search name, bundle ID, version…" oninput="filterApps()">
+        <input type="text" id="appSearch" placeholder="Search name, bundle ID, version…" data-testid="app-search">
+      </div>
+      <!-- Data Stats -->
+      <div id="dataStats" style="font-size:10px;color:var(--text3);padding:6px 0;border-top:1px solid var(--border);margin-top:8px;display:none;">
+        <span id="statsRecords">0 records</span> → <span id="statsApps">0 apps</span>
       </div>
     </div>
-    <div class="pill-tabs">
-      <div class="pill-tab active" onclick="setFilter('all',this)">All</div>
-      <div class="pill-tab" onclick="setFilter('Internal',this)">Internal</div>
-      <div class="pill-tab" onclick="setFilter('Purchased',this)">Purchased</div>
-      <div class="pill-tab" onclick="setFilter('Public',this)">Public</div>
-      <div class="pill-tab" onclick="setFilter('iOS',this)">iOS</div>
-      <div class="pill-tab" onclick="setFilter('Android',this)">Android</div>
-      <div class="pill-tab" onclick="setFilter('macOS',this)">macOS</div>
-      <div class="pill-tab" onclick="setFilter('Windows',this)">Windows</div>
+    <div class="pill-tabs" id="pillTabs">
+      <div class="pill-tab active" data-filter="all">All</div>
+      <div class="pill-tab" data-filter="Internal">Internal</div>
+      <div class="pill-tab" data-filter="Purchased">Purchased</div>
+      <div class="pill-tab" data-filter="Public">Public</div>
+      <div class="pill-tab" data-filter="iOS">iOS</div>
+      <div class="pill-tab" data-filter="Android">Android</div>
+      <div class="pill-tab" data-filter="macOS">macOS</div>
+      <div class="pill-tab" data-filter="Windows">Windows</div>
     </div>
     <div class="app-list" id="appList">
       <div class="sidebar-empty">Click <b>Sync Data</b> to load applications<br>or configure API credentials first.</div>
@@ -590,6 +594,7 @@ let cfg = {
   pageSize: 1000      // API max 1000 per request
 };
 let allApps = [];
+let rawRecordCount = 0;  // Track raw records received
 let selApp = null;
 let filterKey = 'all';
 let devFilter = 'all';
@@ -901,13 +906,20 @@ async function loadAllData() {
       
       if (result && result.success && result.data) {
         log(`Processing ${result.data.length} rows...`);
-        showLoading('Processing…', `${result.count} device records`);
+        rawRecordCount = result.count || result.data.length;
+        showLoading('Processing…', `${rawRecordCount} device records`);
         
         allApps = processRows(result.data);
         
         log(`Processed into ${allApps.length} apps`);
-        toast(`Loaded ${allApps.length} apps (${result.count} device records)`, 'ok');
-        document.getElementById('hdrStatus').textContent = `● Connected · ${allApps.length} apps`;
+        
+        // Update stats display
+        document.getElementById('dataStats').style.display = 'block';
+        document.getElementById('statsRecords').textContent = `${rawRecordCount.toLocaleString()} records`;
+        document.getElementById('statsApps').textContent = `${allApps.length} apps`;
+        
+        toast(`Loaded ${allApps.length} apps (${rawRecordCount.toLocaleString()} device records)`, 'ok');
+        document.getElementById('hdrStatus').textContent = `● Connected · ${rawRecordCount.toLocaleString()} records`;
         document.getElementById('hdrStatus').className = 'header-status connected';
         
       } else if (result && result.demo) {
@@ -945,30 +957,69 @@ async function loadAllData() {
 
 // ─── SIDEBAR RENDER ──────────────────────────────────────────────────────────
 function setFilter(f, el) {
+  log(`setFilter called: ${f}`);
   filterKey = f;
+  
+  // Update active tab
   document.querySelectorAll('.pill-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+  if (el) {
+    el.classList.add('active');
+  } else {
+    // Find tab by data-filter
+    const tab = document.querySelector(`.pill-tab[data-filter="${f}"]`);
+    if (tab) tab.classList.add('active');
+  }
+  
   filterApps();
 }
 
 function filterApps() {
-  const q = document.getElementById('appSearch').value.toLowerCase();
+  log(`filterApps called: filterKey=${filterKey}`);
+  
+  const searchEl = document.getElementById('appSearch');
+  const q = searchEl ? searchEl.value.toLowerCase() : '';
+  
+  log(`Search query: "${q}", Total apps: ${allApps.length}`);
+  
   const list = allApps.filter(a => {
-    const matchQ = !q || a.name.toLowerCase().includes(q)
-      || (a.bundle||'').toLowerCase().includes(q)
-      || (a.latestVersion||'').toLowerCase().includes(q)
-      || a.id.toLowerCase().includes(q);
-    const matchF = filterKey === 'all'
-      || a.type === filterKey || a.type.toLowerCase() === filterKey.toLowerCase()
-      || a.platform === filterKey;
+    // Search match
+    const matchQ = !q || 
+      a.name.toLowerCase().includes(q) ||
+      (a.bundle||'').toLowerCase().includes(q) ||
+      (a.latestVersion||'').toLowerCase().includes(q) ||
+      (a.id||'').toLowerCase().includes(q);
+    
+    // Filter match - check both type and platform
+    let matchF = filterKey === 'all';
+    if (!matchF) {
+      // Check if filter matches app type
+      if (a.type && a.type.toLowerCase() === filterKey.toLowerCase()) {
+        matchF = true;
+      }
+      // Check if filter matches platform
+      if (a.platform && a.platform.toLowerCase() === filterKey.toLowerCase()) {
+        matchF = true;
+      }
+    }
+    
     return matchQ && matchF;
   });
+  
+  log(`Filtered to ${list.length} apps`);
+  
   document.getElementById('appCountBadge').textContent = list.length;
   const el = document.getElementById('appList');
+  
+  if (!allApps.length) {
+    el.innerHTML = `<div class="sidebar-empty">No data loaded.<br>Click <b>Sync Data</b> to fetch applications.</div>`;
+    return;
+  }
+  
   if (!list.length) { 
-    el.innerHTML = `<div class="sidebar-empty">No apps match your search.<br>Try adjusting filters or click Sync Data.</div>`; 
+    el.innerHTML = `<div class="sidebar-empty">No apps match "${q || filterKey}".<br>Try different filters or search.</div>`; 
     return; 
   }
+  
   el.innerHTML = list.map(a => `
     <div class="app-item${selApp?.bundle===a.bundle&&selApp?.platform===a.platform?' sel':''}"
          onclick="selectApp('${encodeURIComponent(a.bundle)}','${a.platform}')" data-testid="app-item-${a.bundle}">
@@ -988,7 +1039,7 @@ function filterApps() {
 // ─── SELECT APP ──────────────────────────────────────────────────────────────
 let selectedVersion = null;  // Track selected version for filtering
 
-function selectApp(bundleEncoded, platform) {
+async function selectApp(bundleEncoded, platform) {
   const bundle = decodeURIComponent(bundleEncoded);
   log(`selectApp called: bundle=${bundle}, platform=${platform}`);
   
@@ -1009,6 +1060,26 @@ function selectApp(bundleEncoded, platform) {
   
   filterApps();
   renderDetail();
+  
+  // Fetch assignments in background
+  if (pywebviewReady && selApp.id) {
+    log(`Fetching assignments for app: ${selApp.id}`);
+    try {
+      const result = await pyCall('fetch_assignments', selApp.id, selApp.type);
+      if (result && result.success && result.data) {
+        selApp.assignments = result.data.map(a => ({
+          name: a.AssignmentName || a.Name || a.GroupName || 'Group',
+          type: a.DeploymentType || a.PushMode || a.Type || 'Required',
+          scope: a.AssignmentType || a.GroupType || 'Smart Group'
+        }));
+        log(`Loaded ${selApp.assignments.length} assignments`);
+        // Re-render to show assignments
+        renderDetail();
+      }
+    } catch(e) {
+      log(`Failed to fetch assignments: ${e}`, 'error');
+    }
+  }
 }
 
 // ─── RENDER DETAIL ───────────────────────────────────────────────────────────
@@ -1109,8 +1180,9 @@ function renderDetail() {
               <span class="card-title-dot" style="background:var(--blue)"></span>
               Assignment Groups (${(a.assignments||[]).length})
             </div>
+            <button class="btn btn-sm btn-outline" onclick="refreshAssignments()">↻ Refresh</button>
           </div>
-          <div class="card-body">
+          <div class="card-body" id="assignmentsBody">
             ${(a.assignments||[]).length
               ? `<div class="assign-grid">${(a.assignments).map(as=>`
                   <div class="assign-card">
@@ -1123,7 +1195,10 @@ function renderDetail() {
                       <span class="${as.type==='Required'?'badge-required':'badge-optional'}">${as.type}</span>
                     </div>
                   </div>`).join('')}</div>`
-              : `<div style="color:var(--text3);font-size:12px;padding:8px 0">No assignment data available. Configure UEM API for live data.</div>`
+              : `<div style="color:var(--text3);font-size:12px;padding:8px 0">
+                  ${cfg.uemHost ? 'Loading assignments...' : 'Configure UEM API Host in settings to load assignment data.'}
+                  <br><small>App ID: ${a.id}</small>
+                </div>`
             }
           </div>
         </div>
@@ -1208,6 +1283,47 @@ function clearVersionFilter() {
   selectedVersion = null;
   devPage = 1;
   renderDetail();
+}
+
+async function refreshAssignments() {
+  if (!selApp) return;
+  
+  log(`Refreshing assignments for: ${selApp.id}`);
+  
+  const body = document.getElementById('assignmentsBody');
+  if (body) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)"><div class="sidebar-spinner"></div>Loading assignments...</div>';
+  }
+  
+  if (pywebviewReady && selApp.id) {
+    try {
+      const result = await pyCall('fetch_assignments', selApp.id, selApp.type);
+      if (result && result.success && result.data && result.data.length > 0) {
+        selApp.assignments = result.data.map(a => ({
+          name: a.AssignmentName || a.Name || a.GroupName || 'Group',
+          type: a.DeploymentType || a.PushMode || a.Type || 'Required',
+          scope: a.AssignmentType || a.GroupType || 'Smart Group'
+        }));
+        log(`Loaded ${selApp.assignments.length} assignments`);
+        toast(`Loaded ${selApp.assignments.length} assignment groups`, 'ok');
+      } else {
+        selApp.assignments = [];
+        log('No assignments found');
+        toast('No assignment groups found', 'ok');
+      }
+      renderDetail();
+    } catch(e) {
+      log(`Failed to fetch assignments: ${e}`, 'error');
+      toast('Failed to load assignments', 'err');
+      if (body) {
+        body.innerHTML = '<div style="color:var(--red);font-size:12px;padding:8px 0">Failed to load assignments. Check UEM API configuration.</div>';
+      }
+    }
+  } else {
+    if (body) {
+      body.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Configure UEM API in settings to load assignments.</div>';
+    }
+  }
 }
 
 function onDevSearch() {
@@ -1417,6 +1533,41 @@ async function init() {
       <p>Configure your API credentials, select filters, then click <b>Sync Data</b> to load applications.</p>
     </div>
   `;
+  
+  // Setup event listeners for search and filters
+  setupEventListeners();
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────────────
+function setupEventListeners() {
+  log('Setting up event listeners...');
+  
+  // Search input
+  const searchInput = document.getElementById('appSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+      log(`Search input: "${e.target.value}"`);
+      filterApps();
+    });
+    searchInput.addEventListener('keyup', function(e) {
+      filterApps();
+    });
+  }
+  
+  // Pill tabs for filtering
+  const pillTabs = document.getElementById('pillTabs');
+  if (pillTabs) {
+    pillTabs.addEventListener('click', function(e) {
+      const tab = e.target.closest('.pill-tab');
+      if (tab) {
+        const filter = tab.dataset.filter;
+        log(`Tab clicked: ${filter}`);
+        setFilter(filter, tab);
+      }
+    });
+  }
+  
+  log('Event listeners setup complete');
 }
 
 // ─── PYWEBVIEW READY HANDLER ─────────────────────────────────────────────────
